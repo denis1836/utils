@@ -1,0 +1,6 @@
+# secrets
+.key
+.env
+*.env
+!*.example.env
+

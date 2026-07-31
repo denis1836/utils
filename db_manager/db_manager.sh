@@ -133,13 +133,6 @@ if [[ "$(uname)" != "Linux" || $OSTYPE != linux* ]]; then
     }
 fi
 
-# check for root 
-if (( UID != 0 )); then
-    echo -e "${RED}[ERROR]${NC} You are not running as root ${NC}"
-    echo -e "${NC}\"\$ sudo ./!db.sh\" or \"su - && ./!db.sh\"${NC}"
-    exit 1
-fi
-
 # check for psql
 if ! command -v psql > /dev/null 2>&1; then
     echo -e "${RED}[ERROR]${NC} PostgreSQL is not installed.${NC}"
@@ -147,57 +140,171 @@ if ! command -v psql > /dev/null 2>&1; then
     exit 1
 fi
 
-if [[ ${1:=} == "--help" ]]; then
+ACTION=""
+DB_ACTION=""
+USER_ACTION=""
+GRANT_LEVEL=""
+
+DB_RUN_AS=""
+TARGET_USER=""
+PROMPT_PASSWORD=false
+
+QUERY_TEXT=""
+QUERY_FILE=""
+QUERY_SOURCE=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --start) ACTION="start"; shift ;;
+        --stop) ACTION="stop"; shift ;;
+        --restart) ACTION="restart"; shift ;;
+        --status) ACTION="status"; shift ;;
+        --drop-existing-db) DB_ACTION="drop-db"; shift ;;
+        --help) ACTION="help"; shift ;;
+        
+        --user)
+            ACTION="user"
+            USER_ACTION="${2:?--user requires: add, remove, grant, or passwd}"
+            shift 2
+        ;;
+
+        query)
+            ACTION="query"
+            shift
+            if [[ "${1:-}" == "-f" ]]; then
+                QUERY_FILE="${2:?-f requires a file path}"
+                shift 2
+            elif [[ "${1:-}" == "-" || $# -eq 0 ]]; then
+                QUERY_SOURCE="stdin"
+                [[ "${1:-}" == "-" ]] && shift
+            else
+                QUERY_TEXT="$1"
+                shift
+            fi
+        ;;
+        --) 
+            shift 
+            break 
+        ;;
+        -*)
+            echo -e "Error: unknowk option '$1'" >&2
+            echo -e "Run with --help to see availble options" >&2
+            exit 1
+        ;;
+        *)
+            echo "Error: unexpected argument '$1'" >&2
+            exit 1
+        ;;
+    esac
+done
+
+ACTION="${ACTION:-setup}"
+
+# check for root for systemctl actions
+if [[ "$ACTION" =~ ^(start|stop|restart)$ ]] && (( UID != 0 )); then
+    echo -e "${RED}[ERROR]${NC} Managing the PostgreSQL service requires root or sudo.${NC}"
+    exit 1
+fi
+
+case "$ACTION" in
+    user)
+        case "$USER_ACTION" in
+            add|remove|grant|passwd) ;;
+            *) 
+                echo "Error: --user must be one of: add, remove, grant, passwd" >&2 
+                exit 1 
+            ;;
+        esac
+        [[ -z "$TARGET_USER" ]] && { 
+            echo "Error: --user $USER_ACTION requires -u <name>" >&2
+            exit 1
+        }
+
+        if [[ "$USER_ACTION" == "add" || "$USER_ACTION" == "passwd" ]] && [[ "$PROMPT_PASSWORD" != true ]]; then
+            echo "Error: --user $USER_ACTION requires -p (password prompt)" >&2
+            exit 1
+        fi
+
+        if [[ -n "$GRANT_LEVEL" && "$USER_ACTION" != "grant" ]]; then
+            echo "Error: --level only applies to --user grant" >&2
+            exit 1
+        fi
+    ;;
+    query)
+        if [[ -z "$QUERY_TEXT" && -z "$QUERY_FILE" && "$QUERY_SOURCE" != "stdin" ]]; then
+            echo "Error: query requires SQL text, -f <file>, or stdin input" >&2
+            exit 1
+        fi
+        if [[ "$PROMPT_PASSWORD" == true && "$QUERY_SOURCE" == "stdin" ]]; then
+            echo "Error: -p (password prompt) can't be combined with stdin query input" >&2
+            exit 1
+        fi
+    ;;
+esac
+
+case "$ACTION" in
+    help) show_help ;;
+    status) run_status ;;
+    start) run_start ;;
+    stop) run_stop ;;
+    restart) run_restart ;;
+    user) run_user_action ;;
+    query) run_query ;;
+    setup) run_setup ;;
+esac
+
+show_help() {
     echo -e "${NC}Usage: sudo ./!db.sh [OPTIONS]${NC}"
     echo -e "${NC} [--start | --stop | --restart] -u <username> -p <password> --drop-existing-db${NC}"
     echo -e "${NC}\n${NC}"
     echo -e "${NC}Manage PostgreSQL service and database setup.${NC}"
     echo -e "${NC}Options:${NC}"
-    echo -e "${YELLOW}  --start${NC}                     Start PostgreSQL service"
-    echo -e "${YELLOW}  --stop${NC}                      Stop PostgreSQL service"
-    echo -e "${YELLOW}  --restart${NC}                   Restart PostgreSQL service"
-    echo -e "${YELLOW}  -u <username> -p <password>${NC} Create a new PostgreSQL user with the specified username and password"
-    echo -e "${YELLOW}  --drop-existing-db${NC}          Drop the existing database if it exists before creating a new one"
+    echo -e "${HIGHLIGHT}  --start${NC}                     Start PostgreSQL service"
+    echo -e "${HIGHLIGHT}  --stop${NC}                      Stop PostgreSQL service"
+    echo -e "${HIGHLIGHT}  --restart${NC}                   Restart PostgreSQL service"
+    echo -e "${HIGHLIGHT}  -u <username> -p <password>${NC} Create a new PostgreSQL user with the specified username and password"
+    echo -e "${HIGHLIGHT}  --drop-existing-db${NC}          Drop the existing database if it exists before creating a new one"
     exit 0
-fi
+    # TODO: add new commands in help text
+}
 
-if [[ ${1:=} == "--status" ]]; then
-    echo -e "${YELLOW}[NOTICE]${NC} Checking PostgreSQL daemon status...${NC}"
+run_status() {
+    echo -e "${NOTICE}[NOTICE]${NC} Checking PostgreSQL daemon status...${NC}"
     systemctl is-active --quiet postgresql || {
-        echo -e "${RED}[ERROR]${NC} PostgreSQL daemon is not running.${NC}"
+        echo -e "${ERROR}[ERROR]${NC} PostgreSQL daemon is not running.${NC}"
         exit 1
     }
     echo -e "${HIGHLIGHT}[OK]${NC} PostgreSQL daemon is active.${NC}"
 
-    echo -e "${YELLOW}[NOTICE]${NC} Checking ${DB_NAME} database state...${NC}"
+    echo -e "${NOTICE}[NOTICE]${NC} Checking ${DB_NAME} database state...${NC}"
     
     timeout 10 pg_isready -d ${DB_NAME} -q || {
-        echo -e "${RED}[ERROR]${NC} Database '${DB_NAME}' is not responding or timed out.${NC}"
+        echo -e "${ERROR}[ERROR]${NC} Database '${DB_NAME}' is not responding or timed out.${NC}"
         exit 1
     }
     echo -e "${HIGHLIGHT}[OK]${NC} Database '${DB_NAME}' is ready.${NC}"
 
     exit 0
-fi
+}
 
 # staring flag
-if [[ ${1:=} == "--start" ]]; then
-    echo -e "${YELLOW}[NOTICE]${NC} Starting PostgreSQL...${NC}"
+run_start() {
+    echo -e "${NOTICE}[NOTICE]${NC} Starting PostgreSQL...${NC}"
     timeout 10 systemctl start postgresql || {
-        echo -e "${RED}[ERROR]${NC} PostgreSQL start timed out.${NC}"
+        echo -e "${ERROR}[ERROR]${NC} PostgreSQL start timed out.${NC}"
         exit 1
     }
     if [[ "$(systemctl is-active postgresql)" != "active" ]]; then
-        echo -e "${RED}[ERROR] ${NC}PostgreSQL failed to start. ${NC}"
+        echo -e "${ERROR}[ERROR] ${NC}PostgreSQL failed to start. ${NC}"
         exit 1
     fi
     echo -e "${HIGHLIGHT}[OK]${NC} PostgreSQL started successfully.${NC}"
     exit_text
     exit 0
-fi
+}
 
 # stop flag
-if [[ ${1:=} == "--stop" ]]; then
+run_stop() {
     echo -e "${YELLOW}[NOTICE]${NC} Stopping PostgreSQL...${NC}"
     timeout 10 systemctl stop postgresql || {
         echo -e "${RED}[ERROR]${NC} PostgreSQL stop timed out.${NC}"
@@ -209,10 +316,10 @@ if [[ ${1:=} == "--stop" ]]; then
     fi
     echo -e "${HIGHLIGHT}[OK]${NC} PostgreSQL stopped successfully.${NC}"
     exit 0
-fi
+}
 
 # restart flag
-if [[ ${1:=} == "--restart" ]]; then
+run_restart() {
     echo -e "${YELLOW}[NOTICE]${NC} Restarting PostgreSQL...${NC}"
     timeout 10 systemctl restart postgresql || {
         echo -e "${RED}[ERROR]${NC} PostgreSQL restart timed out.${NC}"
@@ -225,22 +332,24 @@ if [[ ${1:=} == "--restart" ]]; then
     echo -e "${HIGHLIGHT}[OK]${NC} PostgreSQL restarted successfully.${NC}"
     exit_text
     exit 0
-fi
+}
 
 # check is psql active
-if [[ "$(systemctl is-active postgresql)" != "active" ]]; then
-    echo -e "${YELLOW}[NOTICE]${NC} PostgreSQL is not running. Starting...${NC}"
-    
-    timeout 10 systemctl start postgresql || {
-        echo "${RED}[ERROR]${NC} PostgreSQL start timed out.${NC}"
-        exit 1
-    }
-
+check_psql_daemon() {
     if [[ "$(systemctl is-active postgresql)" != "active" ]]; then
-        echo -e "${RED}[ERROR] ${NC}PostgreSQL failed to start. ${NC}"
-        exit 1
+        echo -e "${YELLOW}[NOTICE]${NC} PostgreSQL is not running. Starting...${NC}"
+
+        timeout 10 systemctl start postgresql || {
+            echo "${RED}[ERROR]${NC} PostgreSQL start timed out.${NC}"
+            exit 1
+        }
+
+        if [[ "$(systemctl is-active postgresql)" != "active" ]]; then
+            echo -e "${RED}[ERROR] ${NC}PostgreSQL failed to start. ${NC}"
+            exit 1
+        fi
     fi
-fi
+}
 
 # user adding
 if [[ ${1:-} == "-u" && ${3:-} == "-p" ]]; then
@@ -259,7 +368,7 @@ if [[ ${1:-} == "-u" && ${3:-} == "-p" ]]; then
                 ALTER ROLE "$NEW_USER" WITH LOGIN;
             END IF;
         END
-        \$$;
+        \$$; 
 EOF
 
     echo -e "${NC}Added user: \"${NEW_USER}\".${NC}"

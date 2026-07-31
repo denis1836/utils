@@ -50,7 +50,7 @@ comm=${1:-"Are you sure?"}
 
 # prints app banner
 print_banner() {
-    case BANNER in
+    case "$BANNER" in
         yes)
             echo -e "${NC}${BANNER_TEXT}${NC}"
         ;;
@@ -145,13 +145,17 @@ DB_ACTION=""
 USER_ACTION=""
 GRANT_LEVEL=""
 
-DB_RUN_AS=""
+PSQL_RUNNER=""
 TARGET_USER=""
 PROMPT_PASSWORD=false
 
 QUERY_TEXT=""
 QUERY_FILE=""
 QUERY_SOURCE=""
+
+RUN_FROM=0
+RUN_TO=0
+RUN_ALL=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -165,6 +169,23 @@ while [[ $# -gt 0 ]]; do
         --user)
             ACTION="user"
             USER_ACTION="${2:?--user requires: add, remove, grant, or passwd}"
+            shift 2
+        ;;
+
+        -U)
+            PSQL_RUNNER="${2:?-U requires a username}"
+            shift 2
+        ;;
+       
+        -u)
+            TARGET_USER="${2:?-u requires a username}"
+            shift 2
+        ;;
+        
+        -p) PROMPT_PASSWORD=true; shift ;;
+        
+        --level)
+            GRANT_LEVEL="${2:?--level requires: read, readwrite, or all}"
             shift 2
         ;;
 
@@ -182,10 +203,22 @@ while [[ $# -gt 0 ]]; do
                 shift
             fi
         ;;
-        --) 
-            shift 
-            break 
+
+        --run) ACTION="run"; shift ;;
+
+        --from)
+            RUN_FROM="${2:?--from requires a number}"
+            shift 2
         ;;
+        --to)
+            RUN_TO="${2:?--to requires a number}"
+            shift 2
+        ;;
+
+        --all) RUN_ALL=true; shift ;;
+
+        --) shift; break ;;
+
         -*)
             echo -e "Error: unknowk option '$1'" >&2
             echo -e "Run with --help to see availble options" >&2
@@ -215,6 +248,7 @@ case "$ACTION" in
                 exit 1 
             ;;
         esac
+
         [[ -z "$TARGET_USER" ]] && { 
             echo "Error: --user $USER_ACTION requires -u <name>" >&2
             exit 1
@@ -230,6 +264,7 @@ case "$ACTION" in
             exit 1
         fi
     ;;
+    
     query)
         if [[ -z "$QUERY_TEXT" && -z "$QUERY_FILE" && "$QUERY_SOURCE" != "stdin" ]]; then
             echo "Error: query requires SQL text, -f <file>, or stdin input" >&2
@@ -240,18 +275,49 @@ case "$ACTION" in
             exit 1
         fi
     ;;
+    
+    run)
+        if [[ "${RUN_ALL:-false}" == true && ( -n "${RUN_FROM:-}" || -n "${RUN_TO:-}" ) ]]; then
+            echo "Error: --all cannot be combined with --from/--to" >&2
+            exit 1
+        fi
+        if [[ "${RUN_ALL:-false}" != true && -z "${RUN_FROM:-}" && -z "${RUN_TO:-}" ]]; then
+            echo "Error: --run requires --all, or --from/--to" >&2
+            exit 1
+        fi
+    ;;
 esac
 
-case "$ACTION" in
-    help) show_help ;;
-    status) run_status ;;
-    start) run_start ;;
-    stop) run_stop ;;
-    restart) run_restart ;;
-    user) run_user_action ;;
-    query) run_query ;;
-    setup) run_setup ;;
-esac
+determine_psql_runner() {
+    if [[ "$(id -un)" == "${DB_USER}" ]]; then
+        PSQL_RUNNER=""
+        return 0
+    fi
+
+    if (( UID == 0 )); then
+        PSQL_RUNNER="sudo -u ${DB_USER}"
+        return 0
+    fi
+
+    if sudo -n -u "${DB_USER}" true 2>/dev/null; then
+        PSQL_RUNNER="sudo -u ${DB_USER}"
+        return 0
+    fi
+
+    if id -nG "$(id -un)" 2>/dev/null | tr ' ' '\n' | grep -qx "${DB_ADMIN_GROUP:-postgres}"; then
+        if sudo -n -u "${DB_USER}" true 2>/dev/null; then
+            PSQL_RUNNER="sudo -u ${DB_USER}"
+            return 0
+        fi
+    fi
+
+    echo -e "${ERROR}[ERROR]${NC} Cannot run as \"${DB_USER}\" without a password prompt.${NC}"
+    echo -e "${NC}Options:${NC}"
+    echo -e "${NC} - run this script as \"${DB_USER}\" directly${NC}"
+    echo -e "${NC} - run with sudo${NC}"
+    echo -e "${NC} - ask an admin to add a NOPASSWD sudo rule for user \"${DB_USER}\"${NC}"
+    return 1
+}
 
 show_help() {
     echo -e "${NC}Usage: sudo ./!db.sh [OPTIONS]${NC}"
@@ -261,8 +327,9 @@ show_help() {
     echo -e "${NC}Options:${NC}"
     echo -e "${HIGHLIGHT}  --start${NC}                     Start PostgreSQL service"
     echo -e "${HIGHLIGHT}  --stop${NC}                      Stop PostgreSQL service"
+    echo -e "${HIGHLIGHT}  --status${NC}                    Check PostgreSQL databse state"
     echo -e "${HIGHLIGHT}  --restart${NC}                   Restart PostgreSQL service"
-    echo -e "${HIGHLIGHT}  -u <username> -p <password>${NC} Create a new PostgreSQL user with the specified username and password"
+    echo -e "${HIGHLIGHT}  -u <username> -p ${NC}           Create a new PostgreSQL user with the specified username and password"
     echo -e "${HIGHLIGHT}  --drop-existing-db${NC}          Drop the existing database if it exists before creating a new one"
     exit 0
     # TODO: add new commands in help text
@@ -283,7 +350,6 @@ run_status() {
         exit 1
     }
     echo -e "${HIGHLIGHT}[OK]${NC} Database '${DB_NAME}' is ready.${NC}"
-
     exit 0
 }
 
@@ -295,23 +361,22 @@ run_start() {
         exit 1
     }
     if [[ "$(systemctl is-active postgresql)" != "active" ]]; then
-        echo -e "${ERROR}[ERROR] ${NC}PostgreSQL failed to start. ${NC}"
+        echo -e "${ERROR}[ERROR]${NC} PostgreSQL failed to start. ${NC}"
         exit 1
     fi
     echo -e "${HIGHLIGHT}[OK]${NC} PostgreSQL started successfully.${NC}"
-    exit_text
     exit 0
 }
 
 # stop flag
 run_stop() {
-    echo -e "${YELLOW}[NOTICE]${NC} Stopping PostgreSQL...${NC}"
+    echo -e "${NOTICE}[NOTICE]${NC} Stopping PostgreSQL...${NC}"
     timeout 10 systemctl stop postgresql || {
-        echo -e "${RED}[ERROR]${NC} PostgreSQL stop timed out.${NC}"
+        echo -e "${ERROR}[ERROR]${NC} PostgreSQL stop timed out.${NC}"
         exit 1
     }
     if [[ "$(systemctl is-active postgresql)" == "active" ]]; then
-        echo -e "${RED}[ERROR] ${NC}PostgreSQL failed to stop. ${NC}"
+        echo -e "${ERROR}[ERROR]${NC} PostgreSQL failed to stop. ${NC}"
         exit 1
     fi
     echo -e "${HIGHLIGHT}[OK]${NC} PostgreSQL stopped successfully.${NC}"
@@ -320,84 +385,118 @@ run_stop() {
 
 # restart flag
 run_restart() {
-    echo -e "${YELLOW}[NOTICE]${NC} Restarting PostgreSQL...${NC}"
+    echo -e "${NOTICE}[NOTICE]${NC} Restarting PostgreSQL...${NC}"
     timeout 10 systemctl restart postgresql || {
-        echo -e "${RED}[ERROR]${NC} PostgreSQL restart timed out.${NC}"
+        echo -e "${ERROR}[ERROR]${NC} PostgreSQL restart timed out.${NC}"
         exit 1
     }
     if [[ "$(systemctl is-active postgresql)" != "active" ]]; then
-        echo -e "${RED}[ERROR] ${NC}PostgreSQL failed to restart. ${NC}"
+        echo -e "${ERROR}[ERROR]${NC} PostgreSQL failed to restart. ${NC}"
         exit 1
     fi
     echo -e "${HIGHLIGHT}[OK]${NC} PostgreSQL restarted successfully.${NC}"
-    exit_text
     exit 0
 }
 
 # check is psql active
 check_psql_daemon() {
     if [[ "$(systemctl is-active postgresql)" != "active" ]]; then
-        echo -e "${YELLOW}[NOTICE]${NC} PostgreSQL is not running. Starting...${NC}"
+        echo -e "${NOTICE}[NOTICE]${NC} PostgreSQL is not running. Starting...${NC}"
 
         timeout 10 systemctl start postgresql || {
-            echo "${RED}[ERROR]${NC} PostgreSQL start timed out.${NC}"
+            echo "${ERROR}[ERROR]${NC} PostgreSQL start timed out.${NC}"
             exit 1
         }
 
         if [[ "$(systemctl is-active postgresql)" != "active" ]]; then
-            echo -e "${RED}[ERROR] ${NC}PostgreSQL failed to start. ${NC}"
+            echo -e "${ERROR}[ERROR]${NC} PostgreSQL failed to start. ${NC}"
             exit 1
         fi
     fi
 }
 
+
 # user adding
-if [[ ${1:-} == "-u" && ${3:-} == "-p" ]]; then
-    NEW_USER="$2"
-    NEW_PASS="$4"
+run_user_action() {
+case "$USER_ACTION" in
+    add)
+        #TODO: get user login and password
+        local user_login="$2"
+        local user_pass=""
+        
+        if [[ $PROMPT_PASSWORD ]]; then
+            while true; do 
+                user_entry1=""
+                user_entry2=""
 
-    ADD_USER=${NEW_USER};
+                read -s -p "Enter user password: " user_entry1
+                read -s -p "Confirm password: " user_entry2
 
-    echo -e "${NC}Creating/Checking user \"${NEW_USER}\"...${NC}"
+                if [[ "$user_entry1" != "$user_entry2" ]]; then
+                    echo -e "${ERROR}Error: ${NC}Passwords do not match.${NC}"
+                    continue
+                fi
+                
+                user_pass="$user_entry2"
+                break
+            done
+        fi
+
+        echo -e "${NC}Adding user \"${user_login}\"...${NC}"
     
-    sudo -u "${DB_USER}" psql -v ON_ERROR_STOP=1 <<-EOF
-        DO \$$
-        BEGIN
-            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$NEW_USER') THEN
-                CREATE ROLE "$NEW_USER" WITH LOGIN PASSWORD '$NEW_PASS';
-                ALTER ROLE "$NEW_USER" WITH LOGIN;
+        "${PSQL_RUNNER}" psql -v ON_ERROR_STOP=1 -c "
+            DO \$$
+            BEGIN
+            IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$user_login') THEN
+                CREATE ROLE "$user_login" WITH LOGIN PASSWORD '$user_pass';
+                ALTER ROLE "$user_login" WITH LOGIN;
             END IF;
-        END
-        \$$; 
-EOF
+            END
+            \$$;
+        "
 
-    echo -e "${NC}Added user: \"${NEW_USER}\".${NC}"
-    echo -e "${YELLOW}[NOTICE]${NC}Remeber to keep your password private."
-fi
+    echo -e "${NC}Added user: \"${user_login}\".${NC}"
+    echo -e "${NOTICE}[NOTICE]${NC}Remeber to keep your password private."
+
+    ;;
+
+    remove)
+        
+    ;;
+
+    grant)
+
+    ;;
+
+    passwd)
+
+    ;;
+esac
+}
 
 # check for db user
 if ! id -u "${DB_USER}" > /dev/null 2>&1; then
-    echo -e "${RED}[ERROR]${NC} PostgreSQL user \"${DB_USER}\" does not exist.${NC}"
+    echo -e "${ERROR}[ERROR]${NC} PostgreSQL user \"${DB_USER}\" does not exist.${NC}"
     echo -e "${NC}Create the user with: \"sudo -u postgres createuser ${DB_USER}\"${NC}"
     exit 1
 fi
 
 # check for --drop-existing-db arg
 if [[ ${1:-} == "--drop-existing-db" ]]; then
-    if sudo -u "${DB_USER}" psql -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}';" | grep -q 1; then
-        affirm "Do you want to drop existing database \"${DB_NAME}\"" || {
+    if ${PSQL_RUNNER} psql -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}';" | grep -q 1; then
+        affirm "Do you want to drop existing database \"${DB_NAME}\"? This action will destroy ALL the data." || {
             echo -e "${NC}Script aborted by user.${NC}"
             exit 1
         }
         
-        echo -e "\n${YELLOW}Terminating active connections to \"${DB_NAME}\"...${NC}"
-        sudo -u "${DB_USER}" psql -v ON_ERROR_STOP=1 -c "
+        echo -e "\n${NOTICE}Terminating active connections to \"${DB_NAME}\"...${NC}"
+        ${PSQL_RUNNER} psql -v ON_ERROR_STOP=1 -c "
             SELECT pg_terminate_backend(pid) 
             FROM pg_stat_activity 
             WHERE datname = '${DB_NAME}' AND pid <> pg_backend_pid();
         "
 
-        echo -e "${YELLOW}Dropping existing database \"${DB_NAME}\"...${NC}"
+        echo -e "${WARNING}Dropping existing database \"${DB_NAME}\"...${NC}"
         sudo -u "${DB_USER}" psql -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS ${DB_NAME};"
         echo -e "${HIGHLIGHT}Existing database dropped.${NC}"
         exit 0
@@ -411,11 +510,13 @@ fi
 # TODO
 
 #check psql connection
-if ! sudo -u "${DB_USER}" psql -v ON_ERROR_STOP=1 -tAc "SELECT 1;" > /dev/null 2>&1; then
-    echo -e "${RED}[ERROR]${NC} Cannot connect to PostgreSQL as user \"${DB_USER}\".${NC}"
-    echo -e "${NC}Check PostgreSQL installation and user permissions.${NC}"
-    exit 1
-fi
+check_psql_conn() {
+    if ! sudo -u "${DB_USER}" psql -v ON_ERROR_STOP=1 -tAc "SELECT 1;" > /dev/null 2>&1; then
+        echo -e "${RED}[ERROR]${NC} Cannot connect to PostgreSQL as user \"${DB_USER}\".${NC}"
+        echo -e "${NC}Check PostgreSQL installation and user permissions.${NC}"
+        exit 1
+    fi
+}
 
 #check if db exists
 if sudo -u "${DB_USER}" psql -v ON_ERROR_STOP=1 -tAc \
@@ -426,7 +527,6 @@ if sudo -u "${DB_USER}" psql -v ON_ERROR_STOP=1 -tAc \
         exit 1
     }
 fi
-
 
 #files amount found msg
 echo -e "${HIGHLIGHT}${#SQL_FILES[@]}${NC} SQL files were found.${NC}"
@@ -441,7 +541,7 @@ for SQL_command in "${SQL_FILES[@]}"; do
         "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}';"  | grep -q 1; then
             sudo -u "${DB_USER}" psql -v ON_ERROR_STOP=1 -f 00_*.sql
         else
-            echo -e "${YELLOW}>[PSQL 0]${NC}Database already exists, skipping.${NC}"
+            echo -e "${WARNING}>[PSQL 0]${NC}Database already exists, skipping.${NC}"
         fi
     else
         sudo -u "${DB_USER}" psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${SQL_command}"
@@ -480,6 +580,17 @@ affirm "Do you want to grant all privileges on the database to user \"${ADD_USER
     sudo -u "${DB_USER}" psql -d "${DB_NAME}" -c "GRANT USAGE ON SCHEMA cron TO ${ADD_USER};"
     echo -e "${HIGHLIGHT}[OK]${NC}Privileges granted to user \"${ADD_USER}\".${NC}"
 }
+
+case "$ACTION" in
+    help) show_help ;;
+    status) run_status ;;
+    start) run_start ;;
+    stop) run_stop ;;
+    restart) run_restart ;;
+    user) run_user_action ;;
+    query) run_query ;;
+    setup) run_setup ;;
+esac
 
 print_bye
 echo ""

@@ -625,6 +625,17 @@ if ! id -u "${DB_USER}" > /dev/null 2>&1; then
     exit 1
 fi
 
+run_query() {
+    if [[ -n "$QUERY_FILE" ]]; then
+        ${PSQL_RUNNER} psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${QUERY_FILE}"
+    elif [[ "$QUERY_SOURCE" == "stdin" ]]; then
+        ${PSQL_RUNNER} psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f -
+    else
+        ${PSQL_RUNNER} psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "${QUERY_TEXT}"
+    fi
+}
+
+
 run_drop_db() {
     if ${PSQL_RUNNER} psql -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}';" | grep -q 1; then
         affirm "Do you want to drop existing database \"${DB_NAME}\"? This action will destroy ALL the data." || {
@@ -729,7 +740,6 @@ filter_sql_files() {
         FILES_TO_RUN+=("$f")
     done
 }
-
 
 execute_sql_files() {
     local list=("$@")

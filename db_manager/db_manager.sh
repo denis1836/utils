@@ -1,5 +1,17 @@
 #!/bin/bash
 
+#########################################################################
+# Script Name:   db_manager.sh
+# Description:   Manage PostgreSQL service and database setup.
+# Author:        Denis Pylypenko <den.pylypen@protonmail.com>
+# Contributors:  None
+# Created:       2026-07-28
+# Last modified: 2026-08-03
+# Version:       1.1.1
+# License:       MIT License
+# Repository:    https://github.com/denis1836/utils/tree/main/db_manager
+#########################################################################
+
 # navigate to script dir
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
@@ -341,7 +353,7 @@ determine_psql_runner() {
 
 show_help() {
     echo -e "${NC}Usage: ./db_manager.sh [ACTION] [OPTIONS]${NC}"
-    echo -e "${NC}\n${NC}"
+    echo -e "${NC}${NC}"
     echo -e "${NC}Manage PostgreSQL service and database setup.${NC}"
     echo -e "${NC}${NC}"
     echo -e "${NC}Service actions:${NC}"
@@ -378,7 +390,6 @@ show_help() {
     echo -e "${NC}      For unattended automation (cron, other scripts), use ~/.pgpass instead.${NC}"
     exit 0
 }
-
 
 run_status() {
     echo -e "${NOTICE}[NOTICE]${NC} Checking PostgreSQL daemon status...${NC}"
@@ -455,7 +466,6 @@ check_psql_daemon() {
         fi
     fi
 }
-
 
 run_user_action() {
 case "$USER_ACTION" in
@@ -613,6 +623,16 @@ if ! id -u "${DB_USER}" > /dev/null 2>&1; then
     exit 1
 fi
 
+run_query() {
+    if [[ -n "$QUERY_FILE" ]]; then
+        ${PSQL_RUNNER} psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${QUERY_FILE}"
+    elif [[ "$QUERY_SOURCE" == "stdin" ]]; then
+        ${PSQL_RUNNER} psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f -
+    else
+        ${PSQL_RUNNER} psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "${QUERY_TEXT}"
+    fi
+}
+
 run_drop_db() {
     if ${PSQL_RUNNER} psql -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}';" | grep -q 1; then
         affirm "Do you want to drop existing database \"${DB_NAME}\"? This action will destroy ALL the data." || {
@@ -717,7 +737,6 @@ filter_sql_files() {
         FILES_TO_RUN+=("$f")
     done
 }
-
 
 execute_sql_files() {
     local list=("$@")

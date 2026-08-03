@@ -1,1 +1,3 @@
-# A simple database manager for PostgreSQL
+# PostgreSQL database manager
+
+A simple database manager.

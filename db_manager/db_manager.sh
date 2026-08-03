@@ -391,7 +391,6 @@ show_help() {
     exit 0
 }
 
-
 run_status() {
     echo -e "${NOTICE}[NOTICE]${NC} Checking PostgreSQL daemon status...${NC}"
     systemctl is-active --quiet postgresql || {
@@ -467,7 +466,6 @@ check_psql_daemon() {
         fi
     fi
 }
-
 
 run_user_action() {
 case "$USER_ACTION" in
@@ -634,7 +632,6 @@ run_query() {
         ${PSQL_RUNNER} psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -c "${QUERY_TEXT}"
     fi
 }
-
 
 run_drop_db() {
     if ${PSQL_RUNNER} psql -v ON_ERROR_STOP=1 -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}';" | grep -q 1; then

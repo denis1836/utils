@@ -1,5 +1,17 @@
 #!/bin/bash
 
+#########################################################################
+# Script Name:   db_manager.sh
+# Description:   Manage PostgreSQL service and database setup.
+# Author:        Denis Pylypenko <den.pylypen@protonmail.com>
+# Contributors:  None
+# Created:       2026-07-28
+# Last modified: 2026-08-03
+# Version:       1.1.1
+# License:       MIT License
+# Repository:    https://github.com/denis1836/utils/tree/main/db_manager
+#########################################################################
+
 # navigate to script dir
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR" || exit 1
@@ -341,7 +353,7 @@ determine_psql_runner() {
 
 show_help() {
     echo -e "${NC}Usage: ./db_manager.sh [ACTION] [OPTIONS]${NC}"
-    echo -e "${NC}\n${NC}"
+    echo -e "${NC}${NC}"
     echo -e "${NC}Manage PostgreSQL service and database setup.${NC}"
     echo -e "${NC}${NC}"
     echo -e "${NC}Service actions:${NC}"

@@ -1,0 +1,21 @@
+{
+  "name": "Example_Asset_Pack",
+  "version": "1.0.1",
+  "date": "2026-06-03",
+  "author": "John Smith",
+  "description": "Just an example",
+  "file": "Example_Asset_Pack_v1.0.1.zip",
+  "download_url": "https://<url>",
+  "sha256": "<hash>",
+  "ue_version": "5.7.4",
+  "install_path": "Content/<path>",
+  "contents": [
+    "Cube1",
+    "Triangle1"
+  ],
+  "depends_on": [],
+  "changelog": [ 
+    "v.1.0.0 - Added basic shapes",
+    "v.1.0.1 - Fixed Triangle1 mesh"
+  ]
+}

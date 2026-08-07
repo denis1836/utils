@@ -21,13 +21,12 @@ Clone the repo, or just grab the two files you need for this tool:
 
 ```bash
 mkdir -p db_manager && cd $_
-curl -fsSL https://raw.githubusercontent.com/<user>/utils/master/db_manager/db_manager.sh -o db_manager.sh
-curl -fsSL https://raw.githubusercontent.com/<user>/utils/master/db_manager/db_manager.conf -o db_manager.conf
+curl -fsSL https://raw.githubusercontent.com/denis1836/utils/master/db_manager/db_manager.sh -o db_manager.sh
+curl -fsSL https://raw.githubusercontent.com/denis1836/utils/master/db_manager/db_manager.conf -o db_manager.conf
 chmod +x db_manager.sh
 ```
 
-Then edit `db_manager.conf` for your project _(see [Configuration](#configuration))_,
-and drop your SQL files into `SQL_DIR`.
+Then edit `db_manager.conf` to match your project _(see [Configuration](#configuration))_, and drop your SQL files into `SQL_DIR`.
 
 ## Usage
 
@@ -35,8 +34,7 @@ and drop your SQL files into `SQL_DIR`.
 ./db_manager.sh [ACTION] [OPTIONS]
 ```
 
-With no action, the script runs the full setup: every SQL file in `SQL_DIR`,
-in order.
+With no action, the script runs the full setup: every SQL file in `SQL_DIR`, in order.
 
 ### Service actions
 

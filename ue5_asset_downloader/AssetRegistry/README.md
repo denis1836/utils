@@ -2,9 +2,9 @@
 
 ## How to add a new asset pack?
 
-1. Compress to zip: `Asset_Pack_Name_vX.Y.Z.zip` ([semantic versioning](/README.md#semantic-versioning-url))
+1. Compress to zip: `Asset_Pack_Name_vX.Y.Z.zip` ([semver](semver.org))
 
-2. Upload the ZIP to the Google Drive [Asset Folder](https://drive.google.com/drive/u/2/folders/1qv_ae8k4-zFgDKxuv7NrbR4PBdlzigwB)
+2. Upload the ZIP to your Google Drive
 
 3. Copy the url to the file
 
@@ -14,11 +14,12 @@
 
 6. `git add AssetRegistry/Asset_Pack_Name_vX.Y.Z.json`
 
-7. `git commit -m "feat(assets): Add Car_Asset_Pack v1.4.12"` ([commit naming](/README.md#commit-naming-convention))
+7. `git commit -m "feat(assets): Add Car_Asset_Pack v1.4.12"` *(example)*
 
 8. `git push`
 
-## How to download the assets locally?
+
+## How to download the assets locally if the script fails?
 
 1. Check JSON file and download from the `drive_url` field
 

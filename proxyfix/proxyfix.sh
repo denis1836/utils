@@ -1,20 +1,15 @@
 #!/bin/bash
 
 #########################################################
-#==INFO==                                               #
-#MADE BY: DeletedUser1836                               #
-#VERSION: 1.0.0.1                                       #
-#DATE OF CREATION: 04.05.2025                           #
-#LAST UPDATE: 10.04.2025                                #
-#                                                       #
-#==CREDITS==:                                           #
-# -me(main author)                                      #
-# -myself(testing)                                      #
-# -My Mom, Dad and ChatGPT(feedback)                    #
-#                                                       #
-#GITHUB: https://github.com/DeletedUser1836/proxyfix    #
-#LICENSE: If you want to use it pls leave ma a star     #
-#         on my github page of the project <3           # 
+# NAME:          proxyfix.sh
+# DESCRIPTION:   Better proxychains configuration file management
+# AUTHOR:        denis1836 <den.pylypen@protonmail.com>
+# CONTRIBUTORS:  None
+# VERSION:       1.0.1
+# CREATED:       2025-05-04
+#                   
+# SOURCE:        https://github.com/denis1836/utils/
+# LICENSE:       MIT License
 #########################################################
 
 # Comment to hide warning when not running as root

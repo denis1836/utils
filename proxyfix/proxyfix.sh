@@ -35,6 +35,26 @@ fi
 
 PROXCONF="${PROXYCHAINS_CONF_FILE}"
 
+confirm() {
+    local prompt="${1:-Are you sure? [y/n]: }"
+    
+    while true; do
+        read -r -p "${prompt}" ans
+        case "${ans}" in
+            [Yy]* ) 
+                return 0 
+            ;;
+            [Nn]* ) 
+                echo "Abort."
+                return 1 
+            ;;
+            * ) 
+                echo "Incorrect answer, please answer again with 'y' or 'n'." 
+            ;;
+        esac
+    done
+}
+
 ensure_profile_folder_exists()
 {
     if [[ ! -d "$DEFAULT_PROFILE_DIR" ]]
@@ -122,28 +142,10 @@ case $1 in
             esac
         done
 
-        if [[ ${#PROXY_LINES[@]} -eq 0 ]]
-        then
-            echo -n "No proxies provided. Do you want to manually edit the file? [y/n]: "
-            while true
-            do
-                read -r confirm1
-                case "$confirm1" in
-                    y)
-                        sudo nano "$PROXCONF"
-                        break
-                    ;;
-
-                    n)
-                        echo "Abort."
-                        break
-                    ;;
-
-                    *)
-                        echo -n "Incorrect answer, please answer again with 'y' or 'n': "
-                    ;;
-                esac
-            done
+        if [[ ${#PROXY_LINES[@]} -eq 0 ]]; then
+            if confirm "No proxies provided. Do you want to manually edit the file? [y/n]:"; then
+                sudo "${DEFAULT_PROFILE_EDITOR}" "${PROXCONF}"
+            fi
         else
             echo "Updating proxy list..."
 
@@ -168,31 +170,14 @@ case $1 in
     ;;
 
     -cl|--clear)
-        echo "Are you sure that you want to clear the proxy list? [y/n]"
-        while true
-        do
-            read -r confirm2
-            case "$confirm2" in
-                y)
-                    echo "Clearing proxy list in $PROXCONF..."
-                    TMP_CONF=$(mktemp)
-                    grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF"
-                    cat "$TMP_CONF" > "$PROXCONF"
-                    rm "$TMP_CONF"
-                    echo "Proxy list cleared."
-                    break
-                ;;
-
-                n)
-                    echo "Abort."
-                    break
-                ;;
-
-                *)
-                    echo -n "Incorrect answer, please answer again with 'y' or 'n': "
-                ;;
-            esac
-        done
+        if confirm "Are you sure that you want to clear the proxy list? [y/n]"; then
+            echo "Clearing proxy list in $PROXCONF..."
+            TMP_CONF=$(mktemp)
+            grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF"
+            cat "$TMP_CONF" > "$PROXCONF"
+            rm "$TMP_CONF"
+            echo "Proxy list cleared."
+        fi
     ;;
 
     -sp|--save-profile)
@@ -220,32 +205,15 @@ case $1 in
 
         profile_not_found_404
 
-        echo -n "Are you sure you want to replace contents of $PROXCONF with profile '$PROFILE_NAME'? [y/n]: "
-        while true
-        do
-            read -r confirm_cp
-            case "$confirm_cp" in
-                y)
-                    echo "Replacing contents of $PROXCONF with profile '$PROFILE_NAME'..."
-                    TMP_CONF=$(mktemp)
-                    grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF"
-                    cat "$TMP_CONF" > "$PROXCONF"
-                    cat "$PROFILE_PATH" >> "$PROXCONF"
-                    rm "$TMP_CONF"
-                    echo "Profile '$PROFILE_NAME' applied to $PROXCONF"
-                    break
-                ;;
-
-                n)
-                    echo "Abort."
-                    break
-                ;;
-
-                *)
-                    echo -n "Incorrect answer, please answer again with 'y' or 'n': "
-                ;;
-            esac
-        done
+        if confirm "Are you sure you want to replace contents of $PROXCONF with profile '$PROFILE_NAME'? [y/n]: "; then
+            echo "Replacing contents of $PROXCONF with profile '$PROFILE_NAME'..."
+            TMP_CONF=$(mktemp)
+            grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF"
+            cat "$TMP_CONF" > "$PROXCONF"
+            cat "$PROFILE_PATH" >> "$PROXCONF"
+            rm "$TMP_CONF"
+            echo "Profile '$PROFILE_NAME' applied to $PROXCONF"
+        fi
     ;;
 
     -ep|--edit-profile)
@@ -274,27 +242,10 @@ case $1 in
 
         profile_not_found_404
 
-        echo -n "Are you sure you want to delete profile '$PROFILE_NAME'? [y/n]: "
-        while true
-        do
-            read -r confirm_del
-            case "$confirm_del" in
-                y)
-                    rm "$PROFILE_PATH"
-                    echo "Profile '$PROFILE_NAME' deleted."
-                    break
-                ;;
-
-                n)
-                    echo "Abort."
-                    break
-                ;;
-
-                *)
-                    echo -n "Incorrect answer, please answer again with 'y' or 'n': "
-                ;;
-            esac
-        done
+        if confirm "Are you sure you want to delete profile '$PROFILE_NAME'? [y/n]: "; then
+            rm "$PROFILE_PATH"
+            echo "Profile '$PROFILE_NAME' was deleted."
+        fi
     ;;
 
     -lp|--list-profiles)

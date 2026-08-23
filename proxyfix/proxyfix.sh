@@ -61,42 +61,10 @@ profile_not_found_404()
     fi
 }
 
-if [[ -z "$PROXCONF" ]]
-then
-    DEFAULT_CONF="/etc/proxychains.conf"
-    if [[ -f "$DEFAULT_CONF" ]]
-    then
-        PROXCONF="$DEFAULT_CONF"
-    else
-        echo "Error: Could not find proxychains config file."
-        if [[ $(which proxychains) != /usr/bin/proxychains ]]
-        then
-            echo "Error: proxychains is not installed"
-            echo "Do you want to install it?[y/n]"
-            while true
-            do
-                read -r confirm0
-                case "$confirm0" in
-                    y)
-                        sudo apt install proxychains
-                        echo ""
-                        echo "You've installed proxychains. Run 'proxyfix -h' for help" 
-                        exit 0
-                    ;;
-
-                    n)
-                        echo "Abort."
-                        break
-                    ;;
-
-                    *)
-                        echo -n "Incorrect answer, please answer again with 'y' or 'n': "
-                    ;;
-                esac
-            done
-        fi
-        exit 1
-    fi
+if command -v "proxychains" > /dev/null 2>&1; then
+    echo -e "Error: proxychains is not installed"
+    echo -e "Please install it to proceed"
+    exit 1
 fi
 
 case $1 in

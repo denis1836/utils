@@ -20,6 +20,7 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 CONFIG_FILE="${SCRIPT_DIR}/download-assets.conf"
 
 if [[ -f "$CONFIG_FILE" ]]; then
+    # shellcheck disable=SC1090
     source "$CONFIG_FILE"
 else
     echo -e "${RED}error:${NC} Configuration file was not found:${NC} $CONFIG_FILE" >&2

@@ -227,124 +227,6 @@ case $1 in
         done
     ;;
 
-    # === Profiles Part  ===
-    -LdPf|--locate-default-profiles-folder)
-        if [[ -f "$DEFAULT_PROFILE_DIR_FILE" ]]
-        then
-            echo "Current default profiles folder:"
-            echo "$DEFAULT_PROFILE_DIR"
-        else
-            echo "No default profiles folder set."
-            echo "Use '--set-default-profiles-folder <path>' to set one."
-        fi
-    ;;
-
-    -LdP|--locate-default-profile)
-        echo "$DEFAULT_PROFILE_NAME"
-    ;;
-
-    -SdPf|--set-default-profiles-folder)
-        if [[ -z "$2" ]]
-        then
-            echo "Error: You must provide a folder path."
-            echo "Usage: --set-default-profiles-folder <path>"
-        else
-            mkdir -p "$2"
-            echo "$2" > "$DEFAULT_PROFILE_DIR_FILE"
-            echo "Default profiles folder set to: $2"
-        fi
-        shift
-    ;;
-
-    -SdP|--set-default-profile)
-        PROFILE_NAME="$2"
-        ensure_profile_name_was_given
-        ensure_profile_folder_exists
-        PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-        profile_not_found_404
-        echo "$PROFILE_NAME" > "$DEFAULT_PROFILE_FILE"
-    ;;
-
-    -SdPv|--set-default-profile-viewer)
-        NEW_VIEWER="$2"
-
-        if [[ -z "$NEW_VIEWER" ]]
-        then
-            echo "No viewer specified. Use one of: cat, less, more."
-            exit 1
-        fi
-        echo "Are you sure that you want to change your default profile viwer from $DEFAULT_PROFILE_VIEWER to $NEW_VIEWER?[y/n]"
-        confirm3=x
-        while true
-        do
-            case $confirm3 in
-                y)
-                    case "$NEW_VIEWER" in
-                    cat|less|more)
-                        DEFAULT_PROFILE_VIEWER="$NEW_VIEWER"
-                        echo "Default profile viewer set to '$DEFAULT_PROFILE_VIEWER'"
-                        exit 0
-                    ;;
-                    *)
-                        echo "Invalid viewer '$NEW_VIEWER'. Allowed values are: cat, less, more."
-                        exit 1
-                    ;;
-                    esac
-                ;;
-                n)
-                    echo "Abort."
-                    exit 0;
-                ;;
-                *)
-                    echo "Invalid argument. Choose between 'y' or 'n'."
-                ;;
-                esac
-        done
-    ;;
-
-    -SdPe|--set-default-proxyfix-editor)
-        while true
-        do
-            NEW_EDITOR="$2"
-
-            if [[ -z "$NEW_EDITOR" ]]
-            then
-                echo "You didn't specify an editor. Choose one of: nano, vi, gedit, code"
-                read -rp "Enter editor name: " NEW_EDITOR
-            fi
-
-            case "$NEW_EDITOR" in
-                nano|vi|gedit|code)
-                    while true
-                    do
-                        echo "You're about to set '$NEW_EDITOR' as your default profile editor."
-                        read -rp "Confirm? (y/n): " confirm
-                        case "$confirm" in
-                            y|Y)
-                                DEFAULT_PROFILE_EDITOR="$NEW_EDITOR"
-                                echo "Default profile editor set to '$DEFAULT_PROFILE_EDITOR'"
-                                echo "$DEFAULT_PROFILE_VIEWER" > "$DEFAULT_PROFILE_VIEWER_FILE"
-                                break 2 
-                                ;;
-                            n|N)
-                                echo "Canceled. No changes made."
-                                break 2
-                                ;;
-                            *)
-                                echo "Invalid input. Please type 'y' or 'n'."
-                                ;;
-                        esac
-                    done
-                    ;;
-                *)
-                    echo "'$NEW_EDITOR' is not supported. Choose from: nano, vi, gedit, code"
-                    read -rp "Try again. Enter valid editor: "
-                    ;;
-            esac
-        done
-    ;;
-
-
     -sp|--save-profile)
         PROFILE_NAME="$2"
 
@@ -480,42 +362,6 @@ case $1 in
         $DEFAULT_PROFILE_VIEWER "$PROFILE_PATH"
     ;;
 
-    -vPm|--view-profile-more)
-        PROFILE_NAME="$2"
-
-        ensure_profile_name_was_given
-        ensure_profile_folder_exists
-
-        PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-        profile_not_found_404
-
-        more "$PROFILE_PATH"
-    ;;
-
-    -vPl|--view-profile-less)
-        PROFILE_NAME="$2"
-
-        ensure_profile_name_was_given
-        ensure_profile_folder_exists
-
-        PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-        profile_not_found_404
-
-        less "$PROFILE_PATH"
-    ;;
-
-    -vPc|--view-profile-cat)
-        PROFILE_NAME="$2"
-
-        ensure_profile_name_was_given
-        ensure_profile_folder_exists
-
-        PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-        profile_not_found_404
-
-        cat "$PROFILE_PATH"
-    ;;
-
     -h|-?|--help)
         echo ""
         echo "> $(basename "$0") arguments:"
@@ -539,21 +385,9 @@ case $1 in
         echo "  -dp,  --delete-profile <name>                   #Delete selected profile (with confirmation)"
         echo "  -lp,  --list-profiles                           #Show list of all saved profiles"
         echo "  -vp,  --view-profile <name>                     #View profile content using default or chosen viewer"
-        echo "        --view-profile-more / -vpm                #View profile with 'more'"
-        echo "        --view-profile-less / -vpl                #View profile with 'less'"
-        echo "        --view-profile-cat / -vpc                 #View profile with 'cat'"
         echo ""
         echo "Note:"
         echo "  If no default profile folder is set, one will be created at ~/ProxyFixProfiles"
-    ;;
-
-    -hd|-?d|--help-defaults)
-        echo ""
-        echo "ProxyFix Default/Settings Help:"
-        echo "  --set-default-profiles-folder  / -SdPf <path>    Set default folder for saved profiles"
-        echo "  --locate-default-profiles-folder / -LdPf         Show current default profile folder"
-        echo "  --set-default-profile-viewer / -SdPv <viewer>    Set default viewer: cat, less, or more"
-        echo "  --set-default-proxyfix-editor / -SdPe <editor>   Set default editor: nano, vi, gedit, code"
     ;;
 
     *)

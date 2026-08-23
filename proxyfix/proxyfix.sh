@@ -12,45 +12,28 @@
 # LICENSE:       MIT License
 #########################################################
 
-# Comment to hide warning when not running as root
-if [ "$(whoami)" != "root" ]; then
-    echo "You are not rooted (current user: $(whoami))"
-    echo "This can cause issues while using the program"
+if [ "$(id -u)" -eq 0 ]; then
+    echo "You are not root (current user: $(id -un))"
+    exit 1
 fi
 
-PROXCONF=$(locate proxychains | grep -E '\.conf$' | head -n 1)
-
-# === Default global settings for profile system ===
-DEFAULT_PROFILE_DIR_FILE="$HOME/.config/proxyfix/proxyfix_default_profiles_dir"
-DEFAULT_PROFILE_VIEWER_FILE="$HOME/.config/proxyfix/proxyfix_default_profile_viewer"
-DEFAULT_PROFILE_EDITOR_FILE="$HOME/.config/proxyfix/proxyfix_default_editor"
-DEFAULT_PROFILE_FILE="$HOME/.config/proxyfix/proxyfix_default_profile"
-DEFAULT_PROFILE_DIR=$(cat "$DEFAULT_PROFILE_DIR_FILE")
-DEFAULT_PROFILE_VIEWER=$(cat "$DEFAULT_PROFILE_VIEWER_FILE")
-DEFAULT_PROFILE_EDITOR=$(cat "$DEFAULT_PROFILE_EDITOR_FILE")
-DEFAULT_PROFILE_NAME=$(cat "$DEFAULT_PROFILE_FILE")
-
-if [[ ! -f "$DEFAULT_PROFILE_FILE" ]]
-then
-    echo "default" > "$DEFAULT_PROFILE_FILE"
-    mkdir -p "$HOME/ProxyFixProfiles"
-    echo "socks5 127.0.0.1 9050" > "$HOME/.config/proxyfix/ProxyFixProfiles/default.conf"
+CONFIG="$HOME/.config/proxyfix/proxyfix.conf"
+if [ ! -f "$CONFIG" ]; then
+    echo "error: the proxyfix config file (${CONFIG}) is missing"
 fi
 
-if [[ ! -f "$DEFAULT_PROFILE_DIR_FILE" ]]
-then
-    echo "$HOME/ProxyFixProfiles" > "$DEFAULT_PROFILE_DIR_FILE"
+if [[ ! -s $CONFIG ]]; then
+    echo -e "error: config file is empty"
+fi    
+
+# shellcheck disable=SC1090
+source "${CONFIG}"
+
+if [[ ! -f "${PROXYCHAINS_CONF_FILE}" ]]; then
+    echo "error: proxychains config file (${PROXYCHAINS_CONF_FILE}) is missing"
 fi
 
-if [[ ! -f "$DEFAULT_PROFILE_VIEWER_FILE" ]]
-then
-    echo "cat" > "$DEFAULT_PROFILE_VIEWER_FILE"
-fi
-
-if [[ ! -f "$DEFAULT_PROFILE_EDITOR_FILE" ]]
-then
-    echo "nano" > "$DEFAULT_PROFILE_EDITOR_FILE"
-fi
+PROXCONF="${PROXYCHAINS_CONF_FILE}"
 
 ensure_profile_folder_exists()
 {

@@ -2,11 +2,12 @@
 
 #########################################################
 # NAME:          proxyfix.sh
-# DESCRIPTION:   Better proxychains configuration file management
-# AUTHOR:        denis1836 <den.pylypen@protonmail.com>
+# DESCRIPTION:   Better proxychains configuration and management
+# AUTHOR:        Denis Pylypenko (denis1836) <den.pylypen@protonmail.com>
 # CONTRIBUTORS:  None
-# VERSION:       1.0.1
+# VERSION:       2.0.11
 # CREATED:       2025-05-04
+# LAST UPDATE:   2026-08-25
 #                   
 # SOURCE:        https://github.com/denis1836/utils/
 # LICENSE:       MIT License

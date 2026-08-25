@@ -12,6 +12,9 @@
 # LICENSE:       MIT License
 #########################################################
 
+set -euo pipefail
+trap 'rm -f /tmp/tmp.*' EXIT
+
 if [[ "$(id -u)" -ne 0 ]]; then
     echo "You are not root (current user: $(id -un))"
     exit 1

@@ -197,19 +197,19 @@ cmd_profile()
     esac
 }
 
-if command -v "proxychains" > /dev/null 2>&1; then
+if ! command -v "proxychains" > /dev/null 2>&1; then
     echo -e "Error: proxychains is not installed"
     echo -e "Please install it to proceed"
     exit 1
 fi
 
 case $1 in
-    -E|--edit)  
+    edit)  
         echo "Opening proxychains config file: $PROXCONF"
         sudo nano "$PROXCONF"
     ;;
 
-    -l|--list)
+    list)
         echo "Listing proxies..."
         echo ""
         echo "Type     | IP           | Port"
@@ -217,17 +217,17 @@ case $1 in
         grep -E '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" | awk '{ printf "%-8s | %-12s | %s\n", $1, $2, $3 }'
     ;;
 
-    -ela|--edit-list-add)
+    edit-list-add)
         ADD_MODE=true
         shift
         set -- -el "$@"
         ;&
-    -elcl|--edit-list-clear)
+    edit-list-clear)
         CLEAR_MODE=true
         shift
         set -- -el "$@"
         ;&
-    -el|--edit-list)
+    edit-list)
         shift
 
         ADD_MODE=${ADD_MODE:-false}
@@ -285,7 +285,7 @@ case $1 in
         fi
     ;;
 
-    -cl|--clear)
+    clear)
         if confirm "Are you sure that you want to clear the proxy list? [y/n]"; then
             echo "Clearing proxy list in $PROXCONF..."
             TMP_CONF=$(mktemp)

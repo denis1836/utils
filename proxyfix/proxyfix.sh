@@ -12,18 +12,20 @@
 # LICENSE:       MIT License
 #########################################################
 
-if [ "$(id -u)" -eq 0 ]; then
+if [[ "$(id -u)" -ne 0 ]]; then
     echo "You are not root (current user: $(id -un))"
     exit 1
 fi
 
 CONFIG="$HOME/.config/proxyfix/proxyfix.conf"
-if [ ! -f "$CONFIG" ]; then
+if [[ ! -f "$CONFIG" ]]; then
     echo "error: the proxyfix config file (${CONFIG}) is missing"
+    exit 1
 fi
 
 if [[ ! -s $CONFIG ]]; then
     echo -e "error: config file is empty"
+    exit 1
 fi    
 
 # shellcheck disable=SC1090

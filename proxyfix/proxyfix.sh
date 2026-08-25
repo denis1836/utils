@@ -86,6 +86,117 @@ profile_not_found_404()
     fi
 }
 
+cmd_profile()
+{
+    case "$1" in
+        save)
+            shift
+            PROFILE_NAME="$1"
+
+            ensure_profile_name_was_given
+
+            ensure_profile_folder_exists
+
+            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
+
+            grep -E '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$PROFILE_PATH"
+
+            echo "Saved profile '$PROFILE_NAME' to: $PROFILE_PATH"
+        ;;
+
+        apply)
+            shift
+            PROFILE_NAME="$1"
+
+            ensure_profile_name_was_given
+
+            ensure_profile_folder_exists
+
+            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
+
+            profile_not_found_404
+
+            if confirm "Are you sure you want to replace contents of $PROXCONF with profile '$PROFILE_NAME'? [y/n]: "; then
+                echo "Replacing contents of $PROXCONF with profile '$PROFILE_NAME'..."
+                TMP_CONF=$(mktemp)
+                grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF"
+                cat "$TMP_CONF" > "$PROXCONF"
+                cat "$PROFILE_PATH" >> "$PROXCONF"
+                rm "$TMP_CONF"
+                echo "Profile '$PROFILE_NAME' applied to $PROXCONF"
+            fi
+        ;;
+
+        edit)
+            shift
+            PROFILE_NAME="$1"
+
+            ensure_profile_name_was_given
+
+            ensure_profile_folder_exists
+
+            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
+
+            profile_not_found_404
+
+            echo "Opening profile '$PROFILE_NAME' for editing..."
+            ${DEFAULT_PROFILE_EDITOR:-nano} "$PROFILE_PATH"
+        ;;
+
+        delete)
+            shift
+            PROFILE_NAME="$1"
+
+            ensure_profile_name_was_given
+
+            ensure_profile_folder_exists
+
+            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
+
+            profile_not_found_404
+
+            if confirm "Are you sure you want to delete profile '$PROFILE_NAME'? [y/n]: "; then
+                rm "$PROFILE_PATH"
+                echo "Profile '$PROFILE_NAME' was deleted."
+            fi
+        ;;
+
+        list)
+            ensure_profile_folder_exists
+
+            echo "Available profiles in $DEFAULT_PROFILE_DIR:"
+            if ls "$DEFAULT_PROFILE_DIR"/*.conf &>/dev/null
+            then
+                for file in "$DEFAULT_PROFILE_DIR"/*.conf
+                do
+                    basename "$file" .conf
+                done
+            else
+                echo "(No profiles found)"
+            fi
+        ;;
+
+        view)
+            shift
+            PROFILE_NAME="$1"
+
+            ensure_profile_name_was_given
+            ensure_profile_folder_exists
+
+            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
+            profile_not_found_404
+
+            if [[ "$DEFAULT_PROFILE_VIEWER" != "cat" && "$DEFAULT_PROFILE_VIEWER" != "less" && "$DEFAULT_PROFILE_VIEWER" != "more" ]]
+            then
+                echo "Unknown default viewer '$DEFAULT_PROFILE_VIEWER'. Falling back to 'cat'."
+                DEFAULT_PROFILE_VIEWER="cat"
+            fi
+
+            ${DEFAULT_PROFILE_VIEWER:-less} "$PROFILE_PATH"
+        ;;
+    esac
+}
+
 if command -v "proxychains" > /dev/null 2>&1; then
     echo -e "Error: proxychains is not installed"
     echo -e "Please install it to proceed"
@@ -185,105 +296,9 @@ case $1 in
         fi
     ;;
 
-    -sp|--save-profile)
-        PROFILE_NAME="$2"
-
-        ensure_profile_name_was_given
-
-        ensure_profile_folder_exists
-
-        PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-
-        grep -E '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$PROFILE_PATH"
-
-        echo "Saved profile '$PROFILE_NAME' to: $PROFILE_PATH"
-    ;;
-
-    -cp|--change-profile)
-        PROFILE_NAME="$2"
-
-        ensure_profile_name_was_given
-
-        ensure_profile_folder_exists
-
-        PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-
-        profile_not_found_404
-
-        if confirm "Are you sure you want to replace contents of $PROXCONF with profile '$PROFILE_NAME'? [y/n]: "; then
-            echo "Replacing contents of $PROXCONF with profile '$PROFILE_NAME'..."
-            TMP_CONF=$(mktemp)
-            grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF"
-            cat "$TMP_CONF" > "$PROXCONF"
-            cat "$PROFILE_PATH" >> "$PROXCONF"
-            rm "$TMP_CONF"
-            echo "Profile '$PROFILE_NAME' applied to $PROXCONF"
-        fi
-    ;;
-
-    -ep|--edit-profile)
-        PROFILE_NAME="$2"
-
-        ensure_profile_name_was_given
-
-        ensure_profile_folder_exists
-
-        PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-
-        profile_not_found_404
-
-        echo "Opening profile '$PROFILE_NAME' for editing..."
-        ${DEFAULT_PROFILE_VIEWER:-nano} "$PROFILE_PATH"
-    ;;
-
-    -dp|--delete-profile)
-        PROFILE_NAME="$2"
-
-        ensure_profile_name_was_given
-
-        ensure_profile_folder_exists
-
-        PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-
-        profile_not_found_404
-
-        if confirm "Are you sure you want to delete profile '$PROFILE_NAME'? [y/n]: "; then
-            rm "$PROFILE_PATH"
-            echo "Profile '$PROFILE_NAME' was deleted."
-        fi
-    ;;
-
-    -lp|--list-profiles)
-        ensure_profile_folder_exists
-
-        echo "Available profiles in $DEFAULT_PROFILE_DIR:"
-        if ls "$DEFAULT_PROFILE_DIR"/*.conf &>/dev/null
-        then
-            for file in "$DEFAULT_PROFILE_DIR"/*.conf
-            do
-                basename "$file" .conf
-            done
-        else
-            echo "(No profiles found)"
-        fi
-    ;;
-
-    -vp|--view-profile)
-        PROFILE_NAME="$2"
-
-        ensure_profile_name_was_given
-        ensure_profile_folder_exists
-
-        PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-        profile_not_found_404
-
-        if [[ "$DEFAULT_PROFILE_VIEWER" != "cat" && "$DEFAULT_PROFILE_VIEWER" != "less" && "$DEFAULT_PROFILE_VIEWER" != "more" ]]
-        then
-            echo "Unknown default viewer '$DEFAULT_PROFILE_VIEWER'. Falling back to 'cat'."
-            DEFAULT_PROFILE_VIEWER="cat"
-        fi
-
-        $DEFAULT_PROFILE_VIEWER "$PROFILE_PATH"
+    profile|p)
+        shift
+        cmd_profile "$@"
     ;;
 
     -h|-?|--help)

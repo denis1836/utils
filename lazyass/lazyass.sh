@@ -27,8 +27,8 @@ if [[ ! -f "$CONFIG" ]]; then
     touch "${CONFIG}"
 fi
 
-appsAR=($(grep '^Apps:' "$AppsConf" | sed 's/^Apps: *//'))
-AmountOfApps=$(grep "Apps-Amount:" "$AppsConf" | awk -F': ' '{print $2}')
+appsAR=($(grep '^Apps:' "$CONFIG" | sed 's/^Apps: *//'))
+AmountOfApps=$(grep "Apps-Amount:" "$CONFIG" | awk -F': ' '{print $2}')
 
 for app in "${appsAR[@]}"
 do
@@ -42,19 +42,19 @@ done
 
 
 launchProfileApps() {
-    profileName="$1"
-    if ! grep -q "^\[profile:$profileName\]" "$AppsConf"
+    profile_name="$1"
+    if ! grep -q "^\[profile:$profile_name\]" "$CONFIG"
     then
-        echo "Profile '$profileName' not found in config."
+        echo "Profile '$profile_name' not found in config."
         exit 1
     fi
 
-    appsLine=$(awk "/\\[profile:$profileName\\]/ {found=1} found && /^Apps:/ {print; exit}" "$AppsConf")
+    appsLine=$(awk "/\\[profile:$profile_name\\]/ {found=1} found && /^Apps:/ {print; exit}" "$CONFIG")
     apps=$(echo "$appsLine" | sed 's/^Apps:[[:space:]]*//')
 
     if [[ -z $apps ]]
     then
-        echo "No applications defined for profile '$profileName'."
+        echo "No applications defined for profile '$profile_name'."
         exit 1
     fi
 
@@ -70,140 +70,164 @@ launchProfileApps() {
 }
 
 case "$1" in
-    -ap|--add-app)
+    app)
+        shift 
+        case "$1" in
+            add)
+                shift
+                if [[ -n $1 ]]
+                then
+                    appName="$1"
+                    sed -i "/^Apps:/ s|$| $appName|" "$CONFIG"
+                    newCount=$((AmountOfApps + 1))
+                    sed -i "s/^Apps-Amount:.*/Apps-Amount: $newCount/" "$CONFIG"
+                    echo "App '$appName' added to config."
+                else
+                    echo "No app name provided."
+                fi
+            ;;
+
+            remove)
+                shift
+                if [[ -n $1 ]]
+                then
+                    appName="$1"
+                    if grep -qE "^Apps:.*\b$appName\b" "$CONFIG"
+                    then
+                        echo "Do you really want to delete '$appName' from the app list? [y/n]"
+                        read -r conf
+                        while true
+                        do
+                            case "$conf" in
+                                y)
+                                    sed -i "s/\b$appName\b//g" "$CONFIG"
+                                    sed -i 's/  */ /g' "$CONFIG"
+                                    sed -i 's/Apps: /Apps:/g' "$CONFIG"
+                                    newCount=$((AmountOfApps - 1))
+                                    sed -i "s/^Apps-Amount:.*/Apps-Amount: $newCount/" "$CONFIG"
+                                    echo "App '$appName' was deleted from the list."
+                                    break
+                                ;;
+                                n)
+                                    echo "Abort."
+                                    break
+                                ;;
+                                *)
+                                    echo "Invalid argument provided. Please answer with 'y' or 'n': "
+                                    read -r conf
+                                ;;
+                            esac
+                        done
+                    else
+                        echo "App '$appName' is not in the config list."
+                    fi
+                else
+                    echo "No app name was provided."
+                fi
+            ;;
+
+            list)
+                echo "Total apps: $AmountOfApps"
+                echo "Listing..."
+                grep "^Apps:" "$CONFIG" | sed 's/^Apps: *//'
+            ;;
+
+            edit)
+                echo "Opening config file '$CONFIG' for editing..."
+                if [[ -z "$EDITOR" ]]; then
+                    nano "$CONFIG"
+                else
+                    "$EDITOR" "$CONFIG"
+                fi
+            ;;
+        esac
+    ;;
+
+    profile)
         shift
-        if [[ -n $1 ]]
-        then
-            appName="$1"
-            sed -i "/^Apps:/ s|$| $appName|" "$AppsConf"
-            newCount=$((AmountOfApps + 1))
-            sed -i "s/^Apps-Amount:.*/Apps-Amount: $newCount/" "$AppsConf"  #pancakes are f*cking delicious
-            echo "App '$appName' added to config."
-        else
-            echo "No app name provided."
-        fi
-    ;;
+        case "$1" in
+            create)
+                shift
+                if [[ -n "$1" ]]
+                then
+                    profile_name="$1"
+                    if grep -q "^\[profile:$profile_name\]" "$CONFIG"
+                    then
+                        echo "Profile '$profile_name' already exists."
+                    else
+                        echo "Creating profile '$profile_name'..."
 
-    -rma|--remove-app)
-        shift
-        if [[ -n $1 ]]
-        then
-            appName="$1"
-            if grep -qE "^Apps:.*\b$appName\b" "$AppsConf"
-            then
-                echo "Do you really want to delete '$appName' from the app list? [y/n]"
-                read -r conf
-                while true
-                do
-                    case "$conf" in
-                        y)
-                            sed -i "s/\b$appName\b//g" "$AppsConf"
-                            sed -i 's/  */ /g' "$AppsConf"
-                            sed -i 's/Apps: /Apps:/g' "$AppsConf"
-                            newCount=$((AmountOfApps - 1))
-                            sed -i "s/^Apps-Amount:.*/Apps-Amount: $newCount/" "$AppsConf"
-                            echo "App '$appName' was deleted from the list."
-                            break
-                        ;;
-                        n)
-                            echo "Abort."
-                            break
-                        ;;
-                        *)
-                            echo "Invalid argument provided. Please answer with 'y' or 'n': "
-                            read -r conf
-                        ;;
-                    esac
-                done
-            else
-                echo "App '$appName' is not in the config list."
-            fi
-        else
-            echo "No app name was provided."
-        fi
-    ;;
-
-    -la|--list-apps)
-        echo "Total apps: $AmountOfApps"
-        echo "Listing..."
-        grep "^Apps:" "$AppsConf" | sed 's/^Apps: *//'
-    ;;
-
-    -E|--edit)
-        echo "Opening config file '$AppsConf' for editing..."
-        sudo nano "$AppsConf"
-    ;;
-
-    #profiles
-    -cP|--create-profile)
-    shift
-        if [[ -n "$1" ]]
-        then
-            profile_name="$1"
-            if grep -q "^\[profile:$profile_name\]" "$AppsConf"
-            then
-                echo "Profile '$profile_name' already exists."
-            else
-                echo "Creating profile '$profile_name'..."
-
-                
-                cat >> "$AppsConf" <<EOF
+                        
+                        cat >> "$CONFIG" <<EOF
 
 [profile:$profile_name]
 Apps:
 Apps-Amount: 0
 EOF
 
-                echo "Profile '$profile_name' created."
+                        echo "Profile '$profile_name' created."
 
-            
-                if [[ -n "$2" ]]
-                then
-                    shift
-                    app="$1"
-                    sed -i "/^\[profile:$profile_name\]/,/\[profile:/s/Apps:/Apps: $app /" "$AppsConf"
-                    echo "App '$app' added to profile '$profile_name'."
+                    
+                        if [[ -n "$2" ]]
+                        then
+                            shift
+                            app="$1"
+                            sed -i "/^\[profile:$profile_name\]/,/\[profile:/s/Apps:/Apps: $app /" "$CONFIG"
+                            echo "App '$app' added to profile '$profile_name'."
+                        fi
+                    fi
+                else
+                    echo "Please specify a profile name."
                 fi
-            fi
-        else
-            echo "Please specify a profile name."
-        fi
-    ;;
+            ;;
 
-    -dP|--delete-profile)
-        shift
-        if [[ -n "$1" ]]
-        then
-            profile_name="$1"
-            if grep -q "^\[profile:$profile_name\]" "$AppsConf"
-            then
-                while true
-                do
-                    echo "Are you sure you want to delete the profile '$profile_name'? (y/n)"
-                    read -r confirm
-                    case "$confirm" in
-                        y|Y)
-                            echo "Deleting profile '$profile_name'..."
-                            sed -i "/^\[profile:$profile_name\]/,/^\[profile:/ { /^\[profile:/!d }" "$AppsConf"
-                            echo "Profile '$profile_name' deleted."
-                            break
-                        ;;
-                        n|N)
-                            echo "Aborted. Profile '$profile_name' not deleted."
-                            break
-                        ;;
-                        *)
-                            echo "Invalid input. Please answer with 'y' or 'n'."
-                        ;;
-                    esac
-                done
-            else
-                echo "Profile '$profile_name' not found."
-            fi
-        else
-            echo "Please specify a profile name."
-        fi
-        unset $profile_name
+            delete)
+                shift
+                if [[ -n "$1" ]]
+                then
+                    profile_name="$1"
+                    if grep -q "^\[profile:$profile_name\]" "$CONFIG"
+                    then
+                        while true
+                        do
+                            echo "Are you sure you want to delete the profile '$profile_name'? (y/n)"
+                            read -r confirm
+                            case "$confirm" in
+                                y|Y)
+                                    echo "Deleting profile '$profile_name'..."
+                                    sed -i "/^\[profile:$profile_name\]/,/^\[profile:/ { /^\[profile:/!d }" "$CONFIG"
+                                    echo "Profile '$profile_name' deleted."
+                                    break
+                                ;;
+                                n|N)
+                                    echo "Aborted. Profile '$profile_name' not deleted."
+                                    break
+                                ;;
+                                *)
+                                    echo "Invalid input. Please answer with 'y' or 'n'."
+                                ;;
+                            esac
+                        done
+                    else
+                        echo "Profile '$profile_name' not found."
+                    fi
+                else
+                    echo "Please specify a profile name."
+                fi
+            ;;
+
+            list)
+                echo "Listing all profiles..."
+                profiles=$(grep -oP "^\[profile:\K[^\]]+" "$CONFIG")
+                if [[ -n "$profiles" ]]
+                then
+                    echo "Profiles found:"
+                    echo "$profiles"
+                else
+                    echo "No profiles found."
+                fi
+            ;;
+        esac
     ;;
 
     -Atp|--add-app-to-profile)
@@ -213,12 +237,12 @@ EOF
             profile_name="$1"
             app_name="$2"
 
-            if grep -q "^\[profile:$profile_name\]" "$AppsConf"
+            if grep -q "^\[profile:$profile_name\]" "$CONFIG"
             then
                 echo "Adding app '$app_name' to profile '$profile_name'..."
-                sed -i "/^\[profile:$profile_name\]/,/^\[profile:/s/Apps: .*/Apps: & $app_name/" "$AppsConf"
+                sed -i "/^\[profile:$profile_name\]/,/^\[profile:/s/Apps: .*/Apps: & $app_name/" "$CONFIG"
 
-                sed -i "/^\[profile:$profile_name\]/,/^\[profile:/s/Apps-Amount: [0-9]\+/Apps-Amount: $(( $(grep "Apps-Amount:" "$AppsConf" | awk '{print $2}') + 1 ))/" "$AppsConf"
+                sed -i "/^\[profile:$profile_name\]/,/^\[profile:/s/Apps-Amount: [0-9]\+/Apps-Amount: $(( $(grep "Apps-Amount:" "$CONFIG" | awk '{print $2}') + 1 ))/" "$CONFIG"
 
                 echo "App '$app_name' added to profile '$profile_name'."
             else
@@ -229,43 +253,30 @@ EOF
         fi
     ;;
 
-    -lP|--list-profiles)
-        echo "Listing all profiles..."
-        profiles=$(grep -oP "^\[profile:\K[^\]]+" "$AppsConf")
-        if [[ -n "$profiles" ]]
-        then
-            echo "Profiles found:"
-            echo "$profiles"
-        else
-            echo "No profiles found."
-        fi
-    ;;
-
     -laP|--list-apps-profile)
         shift
         if [[ -n "$1" ]]
         then
-            profileName="$1"
+            profile_name="$1"
 
-            if grep -q "^\[profile:$profileName\]" "$AppsConf"
+            if grep -q "^\[profile:$profile_name\]" "$CONFIG"
             then
-                echo "Listing apps for profile '$profileName'..."
+                echo "Listing apps for profile '$profile_name'..."
 
-                apps=$(sed -n "/^\[profile:$profileName\]/,/^\[profile:/p" "$AppsConf" | grep -A 100 "Apps:" | tail -n +2)
+                apps=$(sed -n "/^\[profile:$profile_name\]/,/^\[profile:/p" "$CONFIG" | grep -A 100 "Apps:" | tail -n +2)
                 if [[ -n "$apps" ]]
                 then
-                    echo "Apps in profile '$profileName':"
+                    echo "Apps in profile '$profile_name':"
                     echo "$apps"
                 else
-                    echo "No apps assigned to profile '$profileName'."
+                    echo "No apps assigned to profile '$profile_name'."
                 fi
             else
-                echo "Profile '$profileName' not found."
+                echo "Profile '$profile_name' not found."
             fi
         else
             echo "Please specify a profile name."
         fi
-        unset $profileName
     ;;
 
     #misc and help

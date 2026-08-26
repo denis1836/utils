@@ -19,16 +19,27 @@ if [[ -n "${SUDO_USER:-}" ]]; then
 else
     USER_HOME="$HOME"
 fi
-
-CONFIG="${USER_HOME}/.config/lazyass/lazyass.conf"
+CONFIG_DIR="${USER_HOME}/.config/lazyass"
+CONFIG="${CONFIG_DIR}/lazyass.conf"
 if [[ ! -f "$CONFIG" ]]; then
     echo "Could not locate the config file at ${CONFIG}"
     echo "Creating config file..."
     touch "${CONFIG}"
 fi
 
-appsAR=($(grep '^Apps:' "$CONFIG" | sed 's/^Apps: *//'))
-AmountOfApps=$(grep "Apps-Amount:" "$CONFIG" | awk -F': ' '{print $2}')
+PROFILES_DIR="${CONFIG_DIR}/profiles/"
+if [[ ! -d "$PROFILES_DIR" ]]; then
+    echo "Unable to locate profile dir at ${PROFILES_DIR}"
+    echo "Creating dir..."
+    mkdir -p "${PROFILES_DIR}"
+fi
+
+DEFAULT="${USER_HOME}/.config/lazyass/default.conf"
+if [[ ! -f "$DEFAULT" ]]; then
+    echo "Unable to locate default profile at ${DEFAULT}"
+    echo "Creating file..."
+    touch "${DEFAULT}"
+fi
 
 for app in "${appsAR[@]}"
 do
@@ -37,12 +48,33 @@ do
     then
         echo "$app is missing. Please check if the app is installed."
     fi
-    unset pathToApp
 done
 
+confirm() {
+    local prompt="${1:-Are you sure? [y/n]: }"
+    
+    while true; do
+        if ! read -r -p "${prompt}" ans; then
+            echo "Abort."
+            return 1
+        fi
+        case "${ans}" in
+            [Yy]* ) 
+                return 0 
+            ;;
+            [Nn]* ) 
+                echo "Abort."
+                return 1 
+            ;;
+            * ) 
+                echo "Incorrect answer, please answer again with 'y' or 'n'." 
+            ;;
+        esac
+    done
+}
 
 launchProfileApps() {
-    profile_name="$1"
+    local profile_name="$1"
     if ! grep -q "^\[profile:$profile_name\]" "$CONFIG"
     then
         echo "Profile '$profile_name' not found in config."
@@ -186,28 +218,12 @@ EOF
                 if [[ -n "$1" ]]
                 then
                     profile_name="$1"
-                    if grep -q "^\[profile:$profile_name\]" "$CONFIG"
-                    then
-                        while true
-                        do
-                            echo "Are you sure you want to delete the profile '$profile_name'? (y/n)"
-                            read -r confirm
-                            case "$confirm" in
-                                y|Y)
-                                    echo "Deleting profile '$profile_name'..."
-                                    sed -i "/^\[profile:$profile_name\]/,/^\[profile:/ { /^\[profile:/!d }" "$CONFIG"
-                                    echo "Profile '$profile_name' deleted."
-                                    break
-                                ;;
-                                n|N)
-                                    echo "Aborted. Profile '$profile_name' not deleted."
-                                    break
-                                ;;
-                                *)
-                                    echo "Invalid input. Please answer with 'y' or 'n'."
-                                ;;
-                            esac
-                        done
+                    if grep -q "^\[profile:$profile_name\]" "$CONFIG"; then
+                        if confirm "Are you sure you want to delete the profile '$profile_name'?"; then
+                            echo "Deleting profile '$profile_name'..."
+                            sed -i "/^\[profile:$profile_name\]/,/^\[profile:/ { /^\[profile:/!d }" "$CONFIG"
+                            echo "Profile '$profile_name' deleted."
+                        fi
                     else
                         echo "Profile '$profile_name' not found."
                     fi

@@ -1,21 +1,18 @@
 #!/bin/bash
 
 #########################################################
-#==INFO==                                               #
-#MADE BY: DeletedUser1836                               #
-#VERSION: 1.0.0.0                                       #
-#DATE OF CREATION: 10.05.2025                           #
-#LAST UPDATE: 10.04.2025                                #
-#                                                       #
-#==CREDITS==:                                           #
-# -me(main author)                                      #
-# -myself(testing)                                      #
-# -My Mom, Dad and ChatGPT(feedback)                    #
-#                                                       #
-#GITHUB: https://github.com/DeletedUser1836/lazyass     #
-#LICENSE: If you want to use it pls leave ma a star     #
-#         on my github page of the project <3           # 
+# NAME:          lazyass.sh
+# DESCRIPTION:   Easier and quicker multiple app launching
+# AUTHOR:        Denis Pylypenko (denis1836) <den.pylypen@protonmail.com>
+# CONTRIBUTORS:  None
+# VERSION:       2.0.0
+# CREATED:       2025-05-10
+# LAST UPDATE:   2026-08-26
+#                   
+# SOURCE:        https://github.com/denis1836/utils/
+# LICENSE:       MIT License
 #########################################################
+
 
 AppsConf="$HOME/.apps-script.conf"
 

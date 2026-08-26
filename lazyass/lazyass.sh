@@ -14,16 +14,17 @@
 #########################################################
 
 
-AppsConf="$HOME/.apps-script.conf"
+if [[ -n "${SUDO_USER:-}" ]]; then
+    USER_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+else
+    USER_HOME="$HOME"
+fi
 
-if [[ ! -f "$AppsConf" ]]
-then
-    echo "Could not locate the config file at $AppsConf"
+CONFIG="${USER_HOME}/.config/lazyass/lazyass.conf"
+if [[ ! -f "$CONFIG" ]]; then
+    echo "Could not locate the config file at ${CONFIG}"
     echo "Creating config file..."
-    cat > "$AppsConf" <<END
-Apps:
-Apps-Amount: 0
-END
+    touch "${CONFIG}"
 fi
 
 appsAR=($(grep '^Apps:' "$AppsConf" | sed 's/^Apps: *//'))

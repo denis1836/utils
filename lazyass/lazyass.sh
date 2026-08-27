@@ -24,8 +24,9 @@ CONFIG_DIR="${USER_HOME}/.config/lazyass"
 PROFILES_DIR="${CONFIG_DIR}/profiles"
 DEFAULT="${CONFIG_DIR}/default"
 
+[[ ! -d "$CONFIG_DIR" ]] && mkdir -p "${PROFILES_DIR}"
 [[ ! -d "$PROFILES_DIR" ]] && mkdir -p "${PROFILES_DIR}"
-[[ ! -f "$DEFAULT_PROFILE" ]] && touch "$DEFAULT_PROFILE"
+[[ ! -f "$DEFAULT" ]] && touch "${DEFAULT}"
 
 APPS=()
 
@@ -101,7 +102,7 @@ case "$1" in
             add)
                 shift
                 if [[ -n "$1" ]]; then
-                    echo "$1" >> "$DEFAULT_PROFILE"
+                    echo "$1" >> "$DEFAULT"
                     echo "'$1' added to default profile."
                 else
                     echo "No app name provided."
@@ -113,7 +114,7 @@ case "$1" in
                 if [[ -n "$1" ]]; then
                     app_name="$1"
                     if confirm "Delete '$app_name' from default profile?"; then
-                        sed -i "/^\b$app_name\b$/d" "$DEFAULT_PROFILE"
+                        sed -i "/^\b$app_name\b$/d" "$DEFAULT"
                         echo "'$app_name' removed."
                     fi
                 else
@@ -123,31 +124,74 @@ case "$1" in
 
             list)
                 echo "Default profile apps:"
-                read_apps_from_file "$DEFAULT_PROFILE"
+                read_apps_from_file "$DEFAULT"
                 printf ' - %s\n' "${APPS[@]}"
             ;;
 
             edit)
-                ${EDITOR:-nano} "$DEFAULT_PROFILE"
+                ${EDITOR:-nano} "$DEFAULT"
             ;;
         esac
     ;;
 
-    #TODO
     profile)
         shift
         case "$1" in
             create)
                 shift
-
+                if [[ -n "$1" ]]; then
+                    prof_name="$1"
+                    prof_file="${PROFILES_DIR}/${prof_name}"
+                    shift
+                    if [[ -f "$prof_file" ]]; then
+                        echo "Profile '$prof_name' already exists."
+                    else
+                        touch "$prof_file"
+                        for app in "$@"; do
+                            echo "$app" >> "$prof_file"
+                        done
+                        echo "Profile '$prof_name' created."
+                    fi
+                else
+                    echo "Specify profile name."
+                fi
             ;;
 
             delete)
-
+                shift
+                if [[ -n "$1" ]]; then
+                    prof_name="$1"
+                    prof_file="${PROFILES_DIR}/${prof_name}"
+                    if [[ -f "$prof_file" ]]; then
+                        if confirm "Delete profile '$prof_name'?"; then
+                            rm "$prof_file"
+                            echo "Profile '$prof_name' deleted."
+                        fi
+                    else
+                        echo "Profile '$prof_name' not found."
+                    fi
+                else
+                    echo "Specify profile name."
+                fi
             ;;
 
             list)
+                echo "Available profiles:"
+                for p in "${PROFILES_DIR}"/*; do
+                    [[ -f "$p" ]] && echo " - $(basename "$p")"
+                done
+            ;;
 
+            edit)
+                shift
+                if [[ -n "$1" ]]; then
+                    prof_name="$1"
+                    prof_file="${PROFILES_DIR}/${prof_name}"
+                    
+                    ${EDITOR:-nano} "$prof_file"
+                else
+                    echo "Specify profile name."
+                fi
             ;;
         esac
     ;;
@@ -159,7 +203,12 @@ case "$1" in
 
     ;;
     
+    "")
+        read_apps_from_file "$DEFAULT"
+        run_loaded_apps
+    ;;
+
     *)
-        launchProfileApps "$1"
+        launch_profile "$1"
     ;;
 esac

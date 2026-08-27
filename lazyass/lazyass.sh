@@ -196,11 +196,13 @@ case "$1" in
         esac
     ;;
 
-    #TODO
-    -h|-?|--help)
+    help|--help|-h)
         echo "lazyass - quick app launcher"
         echo "Usage:"
-
+        echo "  lazyass                         Launches default profile"
+        echo "  lazyass <profile_name>          Launches specific profile"
+        echo "  lazyass app [add|remove|list|edit]   Manage default apps"
+        echo "  lazyass profile [create|delete|list|edit] Manage profiles"
     ;;
     
     "")

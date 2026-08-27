@@ -41,14 +41,28 @@ if [[ ! -f "$DEFAULT" ]]; then
     touch "${DEFAULT}"
 fi
 
-for app in "${appsAR[@]}"
-do
-    pathToApp=$(which "$app" 2>/dev/null)
-    if [[ -z $pathToApp ]]
-    then
-        echo "$app is missing. Please check if the app is installed."
+APPS=()
+
+load_apps() {
+    local profile_file="$1"
+
+    if [[ -z "$profile_file" || ! -f "$profile_file" ]]; then
+        echo "Błąd: Brak pliku konfiguracyjnego '$profile_file'."
+        return 1
     fi
-done
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -n "$line" && ! "$line" =~ ^[[:space:]]*# ]] && APPS+=("$line")
+    done < "$profile_file"
+
+    for app in "${APPS[@]}"; do
+        if command -v "$app" >/dev/null 2>&1; then
+            "$app" &
+        else
+            echo "$app is missing. Please check is it installed."
+        fi
+    done
+}
 
 confirm() {
     local prompt="${1:-Are you sure? [y/n]: }"

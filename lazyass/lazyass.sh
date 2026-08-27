@@ -33,12 +33,12 @@ confirm() {
     local prompt="${1:-Are you sure? [y/n]: }"
     
     while true; do
-        if ! read -r -p "${prompt}" ans; then
+        if ! IFS= read -r -p "${prompt}" ans; then
             echo "Abort."
             return 1
         fi
         case "${ans}" in
-            [Yy]* ) 
+            [Yy]*|"") 
                 return 0 
             ;;
             [Nn]* ) 
@@ -62,6 +62,7 @@ read_apps_from_file() {
     while IFS= read -r line || [[ -n "$line" ]]; do
         [[ -n "$line" && ! "$line" =~ ^[[:space:]]*# ]] && APPS+=("$line")
     done < "$target_file"
+
 }
 
 run_loaded_apps() {
@@ -98,15 +99,32 @@ case "$1" in
         shift 
         case "$1" in
             add)
-                
+                shift
+                if [[ -n "$1" ]]; then
+                    echo "$1" >> "$DEFAULT_PROFILE"
+                    echo "'$1' added to default profile."
+                else
+                    echo "No app name provided."
+                fi
             ;;
 
             remove)
-                
+                shift
+                if [[ -n "$1" ]]; then
+                    app_name="$1"
+                    if confirm "Delete '$app_name' from default profile?"; then
+                        sed -i "/^\b$app_name\b$/d" "$DEFAULT_PROFILE"
+                        echo "'$app_name' removed."
+                    fi
+                else
+                    echo "No app name provided."
+                fi
             ;;
 
             list)
-
+                echo "Default profile apps:"
+                read_apps_from_file "$DEFAULT_PROFILE"
+                printf ' - %s\n' "${APPS[@]}"
             ;;
 
             edit)
@@ -129,7 +147,7 @@ case "$1" in
             ;;
 
             list)
-               
+
             ;;
         esac
     ;;

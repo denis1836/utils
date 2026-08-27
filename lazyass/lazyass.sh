@@ -52,8 +52,48 @@ confirm() {
     done
 }
 
+read_apps_from_file() {
+    local target_file="$1"
+
+    if [[ -z "$target_file" || ! -f "$target_file" ]]; then
+        return 1
+    fi
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -n "$line" && ! "$line" =~ ^[[:space:]]*# ]] && APPS+=("$line")
+    done < "$target_file"
+}
+
+run_loaded_apps() {
+    if [[ ${#APPS[@]} -eq 0 ]]; then
+        echo "Nothing to launch."
+        return 1
+    fi
+
+    for app in "${APPS[@]}"; do
+        if command -v "$app" >/dev/null 2>&1; then
+            echo "Launching $app..."
+            "$app" &
+        else
+            echo "Error: '$app' not found on system."
+        fi
+    done
+}
+
+launch_profile() {
+    local profile_name="$1"
+    local profile_path="${PROFILES_DIR}/${profile_name}"
+
+    if [[ ! -f "$profile_path" ]]; then
+        echo "Error: Profile '$profile_name' does not exist."
+        exit 1
+    fi
+
+    read_apps_from_file "$profile_path"
+    run_loaded_apps
+}
+
 case "$1" in
-    #TODO
     app)
         shift 
         case "$1" in

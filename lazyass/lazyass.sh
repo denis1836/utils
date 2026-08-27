@@ -171,7 +171,7 @@ case "$1" in
                 fi
             ;;
 
-            delete)
+            remove)
                 shift
                 if [[ -n "$1" ]]; then
                     prof_name="$1"
@@ -231,7 +231,7 @@ case "$1" in
         echo "  lazyass                         Launches default profile"
         echo "  lazyass <profile_name>          Launches specific profile"
         echo "  lazyass app [add|remove|list|edit]   Manage default apps"
-        echo "  lazyass profile [create|delete|list|edit] Manage profiles"
+        echo "  lazyass profile [create|remove|list|edit] Manage profiles"
     ;;
     
     "")

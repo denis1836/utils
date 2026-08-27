@@ -34,7 +34,7 @@ confirm() {
     local prompt="${1:-Are you sure? [y/n]: }"
     
     while true; do
-        if ! IFS= read -r -p "${prompt}" ans; then
+        if ! IFS= read -r -p "${prompt}[Y/n]" ans; then
             echo "Abort."
             return 1
         fi
@@ -55,6 +55,7 @@ confirm() {
 
 read_apps_from_file() {
     local target_file="$1"
+    APPS=()
 
     if [[ -z "$target_file" || ! -f "$target_file" ]]; then
         return 1
@@ -73,7 +74,9 @@ run_loaded_apps() {
     fi
 
     for app in "${APPS[@]}"; do
-        if command -v "$app" >/dev/null 2>&1; then
+        local expanded_app="${app/#\~/$USER_HOME}"
+
+        if command -v "$expanded_app" > /dev/null 2>&1 || [[ -x "$expanded_app" ]]; then
             echo "Launching $app..."
             "$app" &
         else
@@ -101,9 +104,11 @@ case "$1" in
         case "$1" in
             add)
                 shift
-                if [[ -n "$1" ]]; then
-                    echo "$1" >> "$DEFAULT"
-                    echo "'$1' added to default profile."
+                if [[ $# -gt 0 ]]; then
+                    for app in "$@"; do
+                        echo "$app" >> "$DEFAULT"
+                        echo "'$app' added to default profile."
+                    done
                 else
                     echo "No app name provided."
                 fi
@@ -113,8 +118,8 @@ case "$1" in
                 shift
                 if [[ -n "$1" ]]; then
                     app_name="$1"
-                    if confirm "Delete '$app_name' from default profile?"; then
-                        sed -i "/^\b$app_name\b$/d" "$DEFAULT"
+                    if confirm "Delete '$app_name' from default?"; then
+                        sed -i "\|^$app_name$|d" "$DEFAULT"
                         echo "'$app_name' removed."
                     fi
                 else
@@ -125,11 +130,20 @@ case "$1" in
             list)
                 echo "Default profile apps:"
                 read_apps_from_file "$DEFAULT"
-                printf ' - %s\n' "${APPS[@]}"
+                if [[ ${#APPS[@]} -gt 0 ]]; then
+                    printf ' - %s\n' "${APPS[@]}"
+                else
+                    echo " (empty)"
+                fi
             ;;
 
             edit)
                 ${EDITOR:-nano} "$DEFAULT"
+            ;;
+
+            *)
+                echo "Unknown command. See --help."
+                exit 1
             ;;
         esac
     ;;
@@ -176,10 +190,20 @@ case "$1" in
             ;;
 
             list)
+                shift
                 echo "Available profiles:"
+                found=0
+
                 for p in "${PROFILES_DIR}"/*; do
-                    [[ -f "$p" ]] && echo " - $(basename "$p")"
+                    if [[ -f "$p" ]]; then
+                        echo " - $(basename "$p")"
+                        ((found++))
+                    fi
                 done
+
+                if [[ $found -eq 0 ]]; then
+                    echo " (empty)"
+                fi
             ;;
 
             edit)
@@ -192,6 +216,11 @@ case "$1" in
                 else
                     echo "Specify profile name."
                 fi
+            ;;
+
+            *)
+                echo "Unknown command. See --help."
+                exit 1
             ;;
         esac
     ;;

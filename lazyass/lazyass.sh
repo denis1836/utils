@@ -111,6 +111,7 @@ case "$1" in
                     done
                 else
                     echo "No app name provided."
+                    exit 1
                 fi
             ;;
 
@@ -124,6 +125,7 @@ case "$1" in
                     fi
                 else
                     echo "No app name provided."
+                    exit 1
                 fi
             ;;
 
@@ -159,6 +161,7 @@ case "$1" in
                     shift
                     if [[ -f "$prof_file" ]]; then
                         echo "Profile '$prof_name' already exists."
+                        exit 1
                     else
                         touch "$prof_file"
                         for app in "$@"; do
@@ -168,6 +171,37 @@ case "$1" in
                     fi
                 else
                     echo "Specify profile name."
+                    exit 1
+                fi
+            ;;
+
+            add)
+                shift
+                if [[ -n "$1" ]]; then
+                    prof_name="$1"
+                    prof_file="${PROFILES_DIR}/${prof_name}"
+                    shift
+
+                    if [[ ! -f "$prof_file" ]]; then
+                        echo "Error: Profile '$prof_name' does not exist."
+                        exit 1
+                    fi
+
+                    if [[ $# -eq 0 ]]; then
+                        echo "Error: Specify at least one app to add."
+                        exit 1
+                    fi
+
+                    iter=0
+                    for app in "$@"; do
+                        echo "$app" >> "$prof_file"
+                        ((iter++))
+                    done
+
+                    echo "Added $iter app(s) to profile '$prof_name'."
+                else
+                    echo "Specify profile name."
+                    exit 1
                 fi
             ;;
 
@@ -183,9 +217,11 @@ case "$1" in
                         fi
                     else
                         echo "Profile '$prof_name' not found."
+                        exit 1
                     fi
                 else
                     echo "Specify profile name."
+                    exit 1
                 fi
             ;;
 
@@ -215,6 +251,7 @@ case "$1" in
                     ${EDITOR:-nano} "$prof_file"
                 else
                     echo "Specify profile name."
+                    exit 1
                 fi
             ;;
 
@@ -231,7 +268,7 @@ case "$1" in
         echo "  lazyass                         Launches default profile"
         echo "  lazyass <profile_name>          Launches specific profile"
         echo "  lazyass app [add|remove|list|edit]   Manage default apps"
-        echo "  lazyass profile [create|remove|list|edit] Manage profiles"
+        echo "  lazyass profile [create|add|remove|list|edit] Manage profiles"
     ;;
     
     "")

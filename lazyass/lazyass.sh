@@ -70,17 +70,18 @@ read_apps_from_file() {
 run_loaded_apps() {
     if [[ ${#APPS[@]} -eq 0 ]]; then
         echo "Nothing to launch."
-        return 1
+        return 0
     fi
 
     for app in "${APPS[@]}"; do
-        local expanded_app="${app/#\~/$USER_HOME}"
+        local bin_name="${app%% *}"
+        local expanded_bin="${bin_name/#\~/$USER_HOME}"
 
-        if command -v "$expanded_app" > /dev/null 2>&1 || [[ -x "$expanded_app" ]]; then
+        if command -v "$expanded_bin" > /dev/null 2>&1 || [[ -x "$expanded_bin" ]]; then
             echo "Launching $app..."
-            "$app" &
+            eval "$app &"
         else
-            echo "Error: '$app' not found on system."
+            echo "Error: '$bin_name' not found on system."
         fi
     done
 }

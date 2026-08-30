@@ -657,12 +657,6 @@ case "$USER_ACTION" in
 esac
 }
 
-if ! id -u "${DB_USER}" > /dev/null 2>&1; then
-    echo -e "${ERROR}[ERROR]${NC} PostgreSQL user \"${DB_USER}\" does not exist.${NC}"
-    echo -e "${NC}Create the user with: \"sudo -u postgres createuser ${DB_USER}\"${NC}"
-    exit 1
-fi
-
 run_query() {
     if [[ -n "$QUERY_FILE" ]]; then
         ${PSQL_RUNNER} psql -v ON_ERROR_STOP=1 -d "${DB_NAME}" -f "${QUERY_FILE}"

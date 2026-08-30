@@ -6,7 +6,7 @@
 # Author:        Denis Pylypenko <den.pylypen@protonmail.com>
 # Contributors:  None
 # Created:       2026-07-28
-# Last modified: 2026-08-03
+# Last modified: 2026-08-30
 # Version:       1.1.1
 # License:       MIT License
 # Repository:    https://github.com/denis1836/utils/tree/main/db_manager
@@ -32,7 +32,6 @@ ERROR=$RED
 
 # configuration file
 CONF_FILE="./db_manager.conf"
-source "$CONF_FILE"
 
 YES=false
 
@@ -64,6 +63,47 @@ affirm(){
         esac
     done
 }
+
+# configuration file check
+if [[ ! -f "$CONF_FILE" ]]; then
+    echo -e "${ERROR}[ERROR]${NC} Configuration file is missing"
+    if affirm "Do you want to create it?"; then
+        cat <<EOF > "$CONF_FILE"
+SERVICE_NAME=""
+DB_NAME=""
+DB_USER=""
+DB_ADMIN_GROUP="postgres"
+DB_HOST="localhost"
+DB_PORT="5432"
+
+SQL_DIR="./sql"
+SQL_PATTERN='^[0-9][0-9]_.*\.sql$'
+
+REQUIRED_TABLES=(
+
+)
+
+EXTRA_SCHEMAS=()
+
+LOG_DIR="./db_manager_logs"
+LOG_FILE_NAME_PATTERN="%Y-%m-%d_%H:%M:%S_db_manager.log"
+
+VERBOSITY="full"
+HELLO="quiet"
+BYE="quiet"
+
+BANNER="no"
+BANNER_TEXT=""
+EOF
+    echo "Complete the configuration file with your db config data and run the script again."
+    exit 0
+    else
+        exit 1
+    fi
+fi
+
+# shellcheck disable=SC1090
+source "$CONF_FILE"
 
 print_banner() {
     case "$BANNER" in

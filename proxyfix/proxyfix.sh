@@ -161,7 +161,7 @@ cmd_profile()
             ${DEFAULT_PROFILE_EDITOR:-nano} "$PROFILE_PATH"
         ;;
 
-        delete)
+        remove)
             shift
             PROFILE_NAME="$1"
 
@@ -173,9 +173,9 @@ cmd_profile()
 
             profile_not_found_404 "$PROFILE_PATH"
 
-            if confirm "Are you sure you want to delete profile '$PROFILE_NAME'? [y/n]: "; then
+            if confirm "Are you sure you want to remove profile '$PROFILE_NAME'? [y/n]: "; then
                 rm "$PROFILE_PATH"
-                echo "Profile '$PROFILE_NAME' was deleted."
+                echo "Profile '$PROFILE_NAME' was removed."
             fi
         ;;
 
@@ -334,7 +334,7 @@ case "${1:-}" in
         echo "save [name]      Save current proxy list as a named profile"
         echo "apply [name]     Replace proxy list with selected profile"
         echo "edit [name]      Edit the selected profile"
-        echo "delete [name]    Delete the selected profile"
+        echo "remove [name]    Remove the selected profile"
         echo "list             Show list of all avalible profiles"
         echo "view [name]      View profile content"
         echo ""

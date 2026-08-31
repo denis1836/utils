@@ -9,3 +9,13 @@ A simple PostgreSQL DB manager script, can be added to existing projects
 
 3. [UE5 Asset Downloader](./ue5_asset_downloader) \
 A script that makes sharing asset files easier without bloating the Git repo
+
+4. [lazyass](./lazyass/)
+App launching utility script
+
+5. [proxyfix](./proxyfix/)
+`proxychains` managing script for proxy lists and profiles.
+
+## License
+
+[MIT](https://github.com/denis1836/utils/blob/main/LICENSE.md)

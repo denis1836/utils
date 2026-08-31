@@ -161,4 +161,4 @@ asks whether to continue without logging.
 
 ## License
 
-[MIT](../LICENSE.md)
+[MIT](https://github.com/denis1836/utils/blob/main/LICENSE.md)

@@ -63,4 +63,4 @@ Available profile subcommands: `save`, `apply`, `edit`, `remove`, `list`, `view`
 
 ## License
 
-[MIT](../LICENSE.md)
+[MIT](https://github.com/denis1836/utils/blob/main/LICENSE.md)

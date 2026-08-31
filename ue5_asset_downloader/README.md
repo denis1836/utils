@@ -115,3 +115,7 @@ feat(assets): add Car_Asset_Pack v1.4.12
 - the file has to actually be public or you'll download an HTML error page instead of a zip
 - `depends_on` is decorative for now
 - no other file hosts supported yet
+
+## License
+
+[MIT](https://github.com/denis1836/utils/blob/main/LICENSE.md)

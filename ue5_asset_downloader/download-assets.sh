@@ -1,4 +1,16 @@
 #!/bin/bash
+
+#########################################################################
+# Script Name:   download-assets.sh
+# Description:   Easier Unreal Engine 5 asset downloading and sharing
+# Author:        Denis Pylypenko <den.pylypen@protonmail.com>
+# Created:       2026-06-06
+# Last modified: 2026-08-31
+# Version:       1.0.5
+# License:       MIT License
+# Repository:    https://github.com/denis1836/utils/tree/main/ue5_asset_downloader
+#########################################################################
+
 set -euo pipefail
 
 # colors

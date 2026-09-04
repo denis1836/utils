@@ -1,0 +1,25 @@
+{
+  "name": "Map_Pack_1",
+  "version": "1.0.3",
+  "date": "2026-06-12",
+  "author": "Denis Pylypenko",
+  "description": "Volume 1 of maps for WTSO game project",
+  "file": "Map_Pack_1_v1.0.3.zip",
+  "download_url": "https://drive.google.com/file/d/1t_-5F58FH2W180gYnQgKqnkdAZYU7cF6/view?usp=drive_link",
+  "sha256": "e0f87d049064d3087effad5a25fe253783c57fe1016c8c38457db2b1905b3663",
+  "ue_version": "5.7.4",
+  "install_path": "Content/",
+  "contents": [
+    "Maps/BlankMap.umap",
+    "Maps/BlankMap_HLOD0_Instancing.uasset",
+    "__ExternalActors__/BlankMap/",
+    "__ExternalObjects__/BlankMap/"
+  ],
+  "depends_on": [],
+  "changelog": [
+    "v1.0.0 - Added blank map for testing",
+    "v1.0.1 - Added some basic shapes to the map",
+    "v1.0.2 - Fixed OFPA asset issues",
+    "v1.0.3 - Added other shapes"
+  ]
+}

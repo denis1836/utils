@@ -113,10 +113,9 @@ profile_not_found_404()
     if [[ ! -f "${1:-}" ]]
     then
         echo "Profile not found (404): $1"
-        exit 255
+        exit 1
     fi
 }
-
 profile_path()
 {
     printf '%s/%s.conf' "${DEFAULT_PROFILE_DIR%/}" "$1"
@@ -238,7 +237,7 @@ fi
 case "${1:-}" in
     edit)  
         echo "Opening proxychains config file: $PROXCONF"
-        sudo "${DEFAULT_PROFILE_EDITOR:-nano}" "$PROXCONF"
+        sudo ${DEFAULT_PROFILE_EDITOR:-nano} "$PROXCONF"
     ;;
 
     list)
@@ -316,8 +315,7 @@ case "${1:-}" in
             echo "Clearing proxy list in $PROXCONF..."
             TMP_CONF=$(mktemp)
             grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF" || true
-            cat "$TMP_CONF" > "$PROXCONF"
-            rm "$TMP_CONF"
+            mv "$TMP_CONF" "$PROXCONF"
             echo "Proxy list cleared."
         fi
     ;;
@@ -348,7 +346,7 @@ case "${1:-}" in
         echo "apply [name]     Replace proxy list with selected profile"
         echo "edit [name]      Edit the selected profile"
         echo "remove [name]    Remove the selected profile"
-        echo "list             Show list of all avalible profiles"
+        echo "list             Show list of all available profiles"
         echo "view [name]      View profile content"
         echo ""
     ;;

@@ -40,10 +40,23 @@ if [[ ! -f "$CONFIG" ]]; then
     exit 1
 fi
 
-if [[ ! -s $CONFIG ]]; then
+if [[ ! -s "$CONFIG" ]]; then
     echo -e "error: config file is empty"
     exit 1
-fi    
+fi
+
+CONFIG_PERMS=$(stat -c '%a' "$CONFIG")
+if (( (8#$CONFIG_PERMS) & 8#022 )); then
+    echo "error: $CONFIG is writable by group or others"
+    exit 1
+fi
+
+CONFIG_OWNER_UID=$(stat -c '%u' "$CONFIG")
+EXPECTED_UID="${SUDO_UID:-0}"
+if [[ "$CONFIG_OWNER_UID" -ne 0 && "$CONFIG_OWNER_UID" -ne "$EXPECTED_UID" ]]; then
+    echo "error: $CONFIG is not owned by root or by the invoking user"
+    exit 1
+fi
 
 # shellcheck disable=SC1090
 source "${CONFIG}"

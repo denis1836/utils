@@ -244,24 +244,20 @@ case "${1:-}" in
         grep -E '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" | awk '{ printf "%-8s | %-12s | %s\n", $1, $2, $3 }' || true
     ;;
 
-    edit-list-add)
-        ADD_MODE=true
-        shift
-        set -- -el "$@"
-        ;&
-    edit-list-clear)
-        CLEAR_MODE=true
-        shift
-        set -- -el "$@"
-        ;&
-    edit-list)
+    edit-list|edit-list-add|edit-list-clear)
+        CMD_NAME="$1"
         shift
 
-        ADD_MODE=${ADD_MODE:-false}
-        CLEAR_MODE=${CLEAR_MODE:-false}
+        ADD_MODE=false
+        CLEAR_MODE=false
+        case "${CMD_NAME}" in 
+            edit-list-add) ADD_MODE=true ;;
+            edit-list-clear) CLEAR_MODE=true ;;
+        esac
+
         PROXY_LINES=()
 
-        while [[ "$1" =~ ^- ]]
+        while [[ $# -gt 0 && "$1" =~ ^- ]]
         do
             case "$1" in
                 -a|--add)
@@ -271,7 +267,7 @@ case "${1:-}" in
 
                 --line)
                     shift
-                    if [[ -n "${1:-}" ]]; then
+                    if [[ $# -gt 0 ]]; then
                         PROXY_LINES+=("$1")
                         shift
                     fi
@@ -286,28 +282,27 @@ case "${1:-}" in
 
         if [[ ${#PROXY_LINES[@]} -eq 0 ]]; then
             if confirm "No proxies provided. Do you want to manually edit the file? [y/n]:"; then
-                sudo "${DEFAULT_PROFILE_EDITOR}" "${PROXCONF}"
+                sudo "${DEFAULT_PROFILE_EDITOR:-nano}" "${PROXCONF}"
             fi
         else
             echo "Updating proxy list..."
-
             TMP_CONF=$(mktemp)
-            grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF" || true
-            
-            cat "$TMP_CONF" > "$PROXCONF"
 
-            if [[ "$CLEAR_MODE" == true ]]
-            then
-                echo "# Cleared proxy list" >> "$PROXCONF"
+            if [[ "$ADD_MODE" == true ]]; then
+                cat "$PROXCONF" > "$TMP_CONF"
+            else
+                grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF" || true
+                if [[ "$CLEAR_MODE" == true ]]; then
+                    echo "# Cleared proxy list" >> "$PROXCONF"
+                fi
             fi
 
-            for line in "${PROXY_LINES[@]}"
-            do
-                echo "$line" >> "$PROXCONF"
+            for line in "${PROXY_LINES[@]}"; do
+                echo "$line" >> "$TMP_CONF"
             done
 
+            mv "$TMP_CONF" "$PROXCONF" 
             echo "Proxy list updated in $PROXCONF"
-            rm "$TMP_CONF"
         fi
     ;;
 

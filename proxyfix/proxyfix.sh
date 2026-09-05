@@ -117,20 +117,26 @@ profile_not_found_404()
     fi
 }
 
+profile_path()
+{
+    printf '%s/%s.conf' "${DEFAULT_PROFILE_DIR%/}" "$1"
+}
+
 cmd_profile()
 {
-    case "$1" in
+    local PROFILE_NAME PROFILE_PATH
+
+    case "${1:-}" in
         save)
             shift
             PROFILE_NAME="$1"
 
             ensure_profile_name_was_given "$PROFILE_NAME"
-
             ensure_profile_folder_exists
 
-            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
+            PROFILE_PATH="$(profile_path "$PROFILE_NAME")"
 
-            grep -E '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$PROFILE_PATH"
+            grep -E '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$PROFILE_PATH" || true
 
             echo "Saved profile '$PROFILE_NAME' to: $PROFILE_PATH"
         ;;
@@ -140,20 +146,17 @@ cmd_profile()
             PROFILE_NAME="$1"
 
             ensure_profile_name_was_given "$PROFILE_NAME"
-
             ensure_profile_folder_exists
 
-            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-
+            PROFILE_PATH="$(profile_path "$PROFILE_NAME")"
             profile_not_found_404 "$PROFILE_PATH"
 
             if confirm "Are you sure you want to replace contents of $PROXCONF with profile '$PROFILE_NAME'? [y/n]: "; then
                 echo "Replacing contents of $PROXCONF with profile '$PROFILE_NAME'..."
                 TMP_CONF=$(mktemp)
-                grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF"
-                cat "$TMP_CONF" > "$PROXCONF"
+                grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF" || true
                 cat "$PROFILE_PATH" >> "$PROXCONF"
-                rm "$TMP_CONF"
+                mv "$TMP_CONF" "$PROXCONF"
                 echo "Profile '$PROFILE_NAME' applied to $PROXCONF"
             fi
         ;;
@@ -163,11 +166,9 @@ cmd_profile()
             PROFILE_NAME="$1"
 
             ensure_profile_name_was_given "$PROFILE_NAME"
-
             ensure_profile_folder_exists
 
-            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-
+            PROFILE_PATH="$(profile_path "$PROFILE_NAME")"
             profile_not_found_404 "$PROFILE_PATH"
 
             echo "Opening profile '$PROFILE_NAME' for editing..."
@@ -179,11 +180,9 @@ cmd_profile()
             PROFILE_NAME="$1"
 
             ensure_profile_name_was_given "$PROFILE_NAME"
-
             ensure_profile_folder_exists
 
-            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-
+            PROFILE_PATH="$(profile_path "$PROFILE_NAME")"
             profile_not_found_404 "$PROFILE_PATH"
 
             if confirm "Are you sure you want to remove profile '$PROFILE_NAME'? [y/n]: "; then
@@ -216,10 +215,16 @@ cmd_profile()
             ensure_profile_name_was_given "$PROFILE_NAME"
             ensure_profile_folder_exists
 
-            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
+            PROFILE_PATH="$(profile_path "$PROFILE_NAME")"
             profile_not_found_404 "$PROFILE_PATH"
 
             ${DEFAULT_PROFILE_VIEWER:-less} "$PROFILE_PATH"
+        ;;
+
+        *)
+            echo "Unknown profile command: ${1:-}"
+            echo "Run 'proxyfix help-profiles' for usage."
+            exit 1
         ;;
     esac
 }

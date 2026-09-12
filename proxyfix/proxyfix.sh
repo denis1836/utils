@@ -154,8 +154,10 @@ cmd_profile()
                 echo "Replacing contents of $PROXCONF with profile '$PROFILE_NAME'..."
                 TMP_CONF=$(mktemp)
                 grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF" || true
-                cat "$PROFILE_PATH" >> "$PROXCONF"
+                
+                cat "$PROFILE_PATH" >> "$TMP_CONF"
                 mv "$TMP_CONF" "$PROXCONF"
+                
                 echo "Profile '$PROFILE_NAME' applied to $PROXCONF"
             fi
         ;;
@@ -297,7 +299,7 @@ case "${1:-}" in
             else
                 grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF" || true
                 if [[ "$CLEAR_MODE" == true ]]; then
-                    echo "# Cleared proxy list" >> "$PROXCONF"
+                    echo "# Cleared proxy list" >> "$TMP_CONF"
                 fi
             fi
 

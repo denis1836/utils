@@ -61,8 +61,8 @@ fi
 # shellcheck disable=SC1090
 source "${CONFIG}"
 
-if [[ ! -f "${PROXYCHAINS_CONF_FILE}" ]]; then
-    echo "error: proxychains config file (${PROXYCHAINS_CONF_FILE}) is missing"
+if [[ ! -f "${PROXYCHAINS_CONF_FILE:-}" ]]; then
+    echo "error: proxychains config file (${PROXYCHAINS_CONF_FILE:-}) is missing"
     exit 1
 fi
 
@@ -239,7 +239,7 @@ fi
 case "${1:-}" in
     edit)  
         echo "Opening proxychains config file: $PROXCONF"
-        sudo ${DEFAULT_PROFILE_EDITOR:-nano} "$PROXCONF"
+        ${DEFAULT_PROFILE_EDITOR:-nano} "$PROXCONF"
     ;;
 
     list)
@@ -288,7 +288,7 @@ case "${1:-}" in
 
         if [[ ${#PROXY_LINES[@]} -eq 0 ]]; then
             if confirm "No proxies provided. Do you want to manually edit the file? [y/n]:"; then
-                sudo "${DEFAULT_PROFILE_EDITOR:-nano}" "${PROXCONF}"
+                ${DEFAULT_PROFILE_EDITOR:-nano} "${PROXCONF}"
             fi
         else
             echo "Updating proxy list..."

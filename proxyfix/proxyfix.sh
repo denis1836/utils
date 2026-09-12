@@ -34,15 +34,20 @@ else
     USER_HOME="$HOME"
 fi
 
-CONFIG="${USER_HOME}/.config/proxyfix/proxyfix.conf"
-if [[ ! -f "$CONFIG" ]]; then
-    echo "error: the proxyfix config file (${CONFIG}) is missing"
-    exit 1
-fi
+CONFIG_DIR="${USER_HOME}/.config/proxyfix"
+PROFILES_DIR="${CONFIG_DIR}/profiles"
+CONFIG="${CONFIG_DIR}/proxyfix.conf"
+
+[[ ! -d "$PROFILES_DIR" ]] && mkdir -p "$PROFILES_DIR"
 
 if [[ ! -s "$CONFIG" ]]; then
-    echo -e "error: config file is empty"
-    exit 1
+   cat <<EOF > "$CONFIG"
+PROXYCHAINS_CONF_FILE="/etc/proxychains.conf"
+DEFAULT_PROFILE_DIR="${PROFILES_DIR}"
+DEFAULT_PROFILE_VIEWER="less"
+DEFAULT_PROFILE_EDITOR="nano"
+EOF
+    chmod 600 "$CONFIG"
 fi
 
 CONFIG_PERMS=$(stat -c '%a' "$CONFIG")

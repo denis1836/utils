@@ -50,6 +50,10 @@ EOF
     chmod 600 "$CONFIG"
 fi
 
+if [[ -n "${SUDO_USER:-}" ]]; then
+    chown -R "${SUDO_UID}:${SUDO_GID:-$(id -g "$SUDO_USER")}" "$CONFIG_DIR"
+fi
+
 CONFIG_PERMS=$(stat -c '%a' "$CONFIG")
 if (( (8#$CONFIG_PERMS) & 8#022 )); then
     echo "error: $CONFIG is writable by group or others"
@@ -98,11 +102,14 @@ confirm() {
 
 ensure_profile_folder_exists()
 {
-    if [[ ! -d "$DEFAULT_PROFILE_DIR" ]]
-    then
+    if [[ ! -d "$DEFAULT_PROFILE_DIR" ]]; then
         mkdir -p "$DEFAULT_PROFILE_DIR"
+
+        if [[ -n "${SUDO_USER:-}" ]]; then
+            chown -R "${SUDO_UID}:${SUDO_GID:-$(id -g "$SUDO_USER")}" "$DEFAULT_PROFILE_DIR"
+        fi
+
         echo "No default profiles folder set. Created: $DEFAULT_PROFILE_DIR"
-        echo "To change it, use: proxyfix --set-default-profiles-folder <path>"
     fi
 }
 ensure_profile_name_was_given()
@@ -235,7 +242,7 @@ cmd_profile()
     esac
 }
 
-if ! command -v "proxychains" > /dev/null 2>&1; then
+if ! command -v "proxychains" > /dev/null 2>&1 && ! command -v "proxychains4" > /dev/null 2>&1; then
     echo -e "Error: proxychains is not installed"
     echo -e "Please install it to proceed"
     exit 1

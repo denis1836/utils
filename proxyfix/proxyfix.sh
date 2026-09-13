@@ -5,9 +5,9 @@
 # DESCRIPTION:   Better proxychains configuration and management
 # AUTHOR:        Denis Pylypenko (denis1836) <den.pylypen@protonmail.com>
 # CONTRIBUTORS:  None
-# VERSION:       2.0.11
+# VERSION:       2.1.9
 # CREATED:       2025-05-04
-# LAST UPDATE:   2026-08-25
+# LAST UPDATE:   2026-09-12
 #                   
 # SOURCE:        https://github.com/denis1836/utils/
 # LICENSE:       MIT License
@@ -34,22 +34,44 @@ else
     USER_HOME="$HOME"
 fi
 
-CONFIG="${USER_HOME}/.config/proxyfix/proxyfix.conf"
-if [[ ! -f "$CONFIG" ]]; then
-    echo "error: the proxyfix config file (${CONFIG}) is missing"
+CONFIG_DIR="${USER_HOME}/.config/proxyfix"
+PROFILES_DIR="${CONFIG_DIR}/profiles"
+CONFIG="${CONFIG_DIR}/proxyfix.conf"
+
+[[ ! -d "$PROFILES_DIR" ]] && mkdir -p "$PROFILES_DIR"
+
+if [[ ! -s "$CONFIG" ]]; then
+   cat <<EOF > "$CONFIG"
+PROXYCHAINS_CONF_FILE="/etc/proxychains.conf"
+DEFAULT_PROFILE_DIR="${PROFILES_DIR}"
+DEFAULT_PROFILE_VIEWER="less"
+DEFAULT_PROFILE_EDITOR="nano"
+EOF
+    chmod 600 "$CONFIG"
+fi
+
+if [[ -n "${SUDO_USER:-}" ]]; then
+    chown -R "${SUDO_UID}:${SUDO_GID:-$(id -g "$SUDO_USER")}" "$CONFIG_DIR"
+fi
+
+CONFIG_PERMS=$(stat -c '%a' "$CONFIG")
+if (( (8#$CONFIG_PERMS) & 8#022 )); then
+    echo "error: $CONFIG is writable by group or others"
     exit 1
 fi
 
-if [[ ! -s $CONFIG ]]; then
-    echo -e "error: config file is empty"
+CONFIG_OWNER_UID=$(stat -c '%u' "$CONFIG")
+EXPECTED_UID="${SUDO_UID:-0}"
+if [[ "$CONFIG_OWNER_UID" -ne 0 && "$CONFIG_OWNER_UID" -ne "$EXPECTED_UID" ]]; then
+    echo "error: $CONFIG is not owned by root or by the invoking user"
     exit 1
-fi    
+fi
 
 # shellcheck disable=SC1090
 source "${CONFIG}"
 
-if [[ ! -f "${PROXYCHAINS_CONF_FILE}" ]]; then
-    echo "error: proxychains config file (${PROXYCHAINS_CONF_FILE}) is missing"
+if [[ ! -f "${PROXYCHAINS_CONF_FILE:-}" ]]; then
+    echo "error: proxychains config file (${PROXYCHAINS_CONF_FILE:-}) is missing"
     exit 1
 fi
 
@@ -80,11 +102,14 @@ confirm() {
 
 ensure_profile_folder_exists()
 {
-    if [[ ! -d "$DEFAULT_PROFILE_DIR" ]]
-    then
+    if [[ ! -d "$DEFAULT_PROFILE_DIR" ]]; then
         mkdir -p "$DEFAULT_PROFILE_DIR"
+
+        if [[ -n "${SUDO_USER:-}" ]]; then
+            chown -R "${SUDO_UID}:${SUDO_GID:-$(id -g "$SUDO_USER")}" "$DEFAULT_PROFILE_DIR"
+        fi
+
         echo "No default profiles folder set. Created: $DEFAULT_PROFILE_DIR"
-        echo "To change it, use: proxyfix --set-default-profiles-folder <path>"
     fi
 }
 ensure_profile_name_was_given()
@@ -100,24 +125,29 @@ profile_not_found_404()
     if [[ ! -f "${1:-}" ]]
     then
         echo "Profile not found (404): $1"
-        exit 255
+        exit 1
     fi
+}
+profile_path()
+{
+    printf '%s/%s.conf' "${DEFAULT_PROFILE_DIR%/}" "$1"
 }
 
 cmd_profile()
 {
-    case "$1" in
+    local PROFILE_NAME PROFILE_PATH
+
+    case "${1:-}" in
         save)
             shift
             PROFILE_NAME="$1"
 
             ensure_profile_name_was_given "$PROFILE_NAME"
-
             ensure_profile_folder_exists
 
-            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
+            PROFILE_PATH="$(profile_path "$PROFILE_NAME")"
 
-            grep -E '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$PROFILE_PATH"
+            grep -E '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$PROFILE_PATH" || true
 
             echo "Saved profile '$PROFILE_NAME' to: $PROFILE_PATH"
         ;;
@@ -127,20 +157,19 @@ cmd_profile()
             PROFILE_NAME="$1"
 
             ensure_profile_name_was_given "$PROFILE_NAME"
-
             ensure_profile_folder_exists
 
-            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-
+            PROFILE_PATH="$(profile_path "$PROFILE_NAME")"
             profile_not_found_404 "$PROFILE_PATH"
 
             if confirm "Are you sure you want to replace contents of $PROXCONF with profile '$PROFILE_NAME'? [y/n]: "; then
                 echo "Replacing contents of $PROXCONF with profile '$PROFILE_NAME'..."
                 TMP_CONF=$(mktemp)
-                grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF"
-                cat "$TMP_CONF" > "$PROXCONF"
-                cat "$PROFILE_PATH" >> "$PROXCONF"
-                rm "$TMP_CONF"
+                grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF" || true
+                
+                cat "$PROFILE_PATH" >> "$TMP_CONF"
+                mv "$TMP_CONF" "$PROXCONF"
+                
                 echo "Profile '$PROFILE_NAME' applied to $PROXCONF"
             fi
         ;;
@@ -150,11 +179,9 @@ cmd_profile()
             PROFILE_NAME="$1"
 
             ensure_profile_name_was_given "$PROFILE_NAME"
-
             ensure_profile_folder_exists
 
-            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-
+            PROFILE_PATH="$(profile_path "$PROFILE_NAME")"
             profile_not_found_404 "$PROFILE_PATH"
 
             echo "Opening profile '$PROFILE_NAME' for editing..."
@@ -166,11 +193,9 @@ cmd_profile()
             PROFILE_NAME="$1"
 
             ensure_profile_name_was_given "$PROFILE_NAME"
-
             ensure_profile_folder_exists
 
-            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
-
+            PROFILE_PATH="$(profile_path "$PROFILE_NAME")"
             profile_not_found_404 "$PROFILE_PATH"
 
             if confirm "Are you sure you want to remove profile '$PROFILE_NAME'? [y/n]: "; then
@@ -203,15 +228,21 @@ cmd_profile()
             ensure_profile_name_was_given "$PROFILE_NAME"
             ensure_profile_folder_exists
 
-            PROFILE_PATH="${DEFAULT_PROFILE_DIR}/${PROFILE_NAME}.conf"
+            PROFILE_PATH="$(profile_path "$PROFILE_NAME")"
             profile_not_found_404 "$PROFILE_PATH"
 
             ${DEFAULT_PROFILE_VIEWER:-less} "$PROFILE_PATH"
         ;;
+
+        *)
+            echo "Unknown profile command: ${1:-}"
+            echo "Run 'proxyfix help-profiles' for usage."
+            exit 1
+        ;;
     esac
 }
 
-if ! command -v "proxychains" > /dev/null 2>&1; then
+if ! command -v "proxychains" > /dev/null 2>&1 && ! command -v "proxychains4" > /dev/null 2>&1; then
     echo -e "Error: proxychains is not installed"
     echo -e "Please install it to proceed"
     exit 1
@@ -220,7 +251,7 @@ fi
 case "${1:-}" in
     edit)  
         echo "Opening proxychains config file: $PROXCONF"
-        sudo "${DEFAULT_PROFILE_EDITOR:-nano}" "$PROXCONF"
+        ${DEFAULT_PROFILE_EDITOR:-nano} "$PROXCONF"
     ;;
 
     list)
@@ -231,24 +262,20 @@ case "${1:-}" in
         grep -E '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" | awk '{ printf "%-8s | %-12s | %s\n", $1, $2, $3 }' || true
     ;;
 
-    edit-list-add)
-        ADD_MODE=true
-        shift
-        set -- -el "$@"
-        ;&
-    edit-list-clear)
-        CLEAR_MODE=true
-        shift
-        set -- -el "$@"
-        ;&
-    edit-list)
+    edit-list|edit-list-add|edit-list-clear)
+        CMD_NAME="$1"
         shift
 
-        ADD_MODE=${ADD_MODE:-false}
-        CLEAR_MODE=${CLEAR_MODE:-false}
+        ADD_MODE=false
+        CLEAR_MODE=false
+        case "${CMD_NAME}" in 
+            edit-list-add) ADD_MODE=true ;;
+            edit-list-clear) CLEAR_MODE=true ;;
+        esac
+
         PROXY_LINES=()
 
-        while [[ "$1" =~ ^- ]]
+        while [[ $# -gt 0 && "$1" =~ ^- ]]
         do
             case "$1" in
                 -a|--add)
@@ -258,7 +285,7 @@ case "${1:-}" in
 
                 --line)
                     shift
-                    if [[ -n "${1:-}" ]]; then
+                    if [[ $# -gt 0 ]]; then
                         PROXY_LINES+=("$1")
                         shift
                     fi
@@ -273,28 +300,27 @@ case "${1:-}" in
 
         if [[ ${#PROXY_LINES[@]} -eq 0 ]]; then
             if confirm "No proxies provided. Do you want to manually edit the file? [y/n]:"; then
-                sudo "${DEFAULT_PROFILE_EDITOR}" "${PROXCONF}"
+                ${DEFAULT_PROFILE_EDITOR:-nano} "${PROXCONF}"
             fi
         else
             echo "Updating proxy list..."
-
             TMP_CONF=$(mktemp)
-            grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF" || true
-            
-            cat "$TMP_CONF" > "$PROXCONF"
 
-            if [[ "$CLEAR_MODE" == true ]]
-            then
-                echo "# Cleared proxy list" >> "$PROXCONF"
+            if [[ "$ADD_MODE" == true ]]; then
+                cat "$PROXCONF" > "$TMP_CONF"
+            else
+                grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF" || true
+                if [[ "$CLEAR_MODE" == true ]]; then
+                    echo "# Cleared proxy list" >> "$TMP_CONF"
+                fi
             fi
 
-            for line in "${PROXY_LINES[@]}"
-            do
-                echo "$line" >> "$PROXCONF"
+            for line in "${PROXY_LINES[@]}"; do
+                echo "$line" >> "$TMP_CONF"
             done
 
+            mv "$TMP_CONF" "$PROXCONF" 
             echo "Proxy list updated in $PROXCONF"
-            rm "$TMP_CONF"
         fi
     ;;
 
@@ -303,8 +329,7 @@ case "${1:-}" in
             echo "Clearing proxy list in $PROXCONF..."
             TMP_CONF=$(mktemp)
             grep -vE '^\s*(socks4|socks5|http|https)\s+' "$PROXCONF" > "$TMP_CONF" || true
-            cat "$TMP_CONF" > "$PROXCONF"
-            rm "$TMP_CONF"
+            mv "$TMP_CONF" "$PROXCONF"
             echo "Proxy list cleared."
         fi
     ;;
@@ -335,7 +360,7 @@ case "${1:-}" in
         echo "apply [name]     Replace proxy list with selected profile"
         echo "edit [name]      Edit the selected profile"
         echo "remove [name]    Remove the selected profile"
-        echo "list             Show list of all avalible profiles"
+        echo "list             Show list of all available profiles"
         echo "view [name]      View profile content"
         echo ""
     ;;

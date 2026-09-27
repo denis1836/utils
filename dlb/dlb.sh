@@ -112,11 +112,18 @@ while IFS= read -r raw_line || [[ -n "$raw_line" ]]; do
 
     print_fetch "$line"
 
-    if yt-dlp "${YTDLP_OPTS[@]}" "$line" >/dev/null 2>&1; then
+    ytdlp_output="$(yt-dlp "${YTDLP_OPTS[@]}" "$line" 2>&1)"
+    ytdlp_status=$?
+
+    if [[ "$ytdlp_status" -eq 0 ]]; then
         print_ok "downloaded: $line"
         OK_COUNT=$((OK_COUNT + 1))
     else
         print_error "failed to download, skipping: $line"
+        echo "$ytdlp_output" | grep -E '^ERROR' | tail -n 3 | sed 's/^/           /'
+        if ! echo "$ytdlp_output" | grep -q '^ERROR'; then
+            echo "$ytdlp_output" | tail -n 3 | sed 's/^/           /'
+        fi
         FAILED_LINKS+=("$line")
         FAIL_COUNT=$((FAIL_COUNT + 1))
     fi
